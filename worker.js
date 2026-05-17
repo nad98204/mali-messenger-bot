@@ -6,7 +6,7 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    if (url.pathname !== "/webhook") {
+    if (url.pathname !== "/webhook" && url.pathname !== "/") {
       return new Response("Not found", { status: 404 });
     }
 
