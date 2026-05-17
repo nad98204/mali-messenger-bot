@@ -45,11 +45,10 @@ ${RAG_DATA.buoi2}
 
 ĐỘ DÀI TIN NHẮN:
 
-Mỗi tin tối đa 2-3 câu ngắn
-Nếu cần nói nhiều thì chia thành nhiều tin nhắn liên tiếp, mỗi tin 1 ý
-Dùng ký hiệu [NEXT] để tách các tin nhắn
-Ví dụ đúng: 'ừ tớ hiểu[NEXT]hồi đó tớ cũng vậy, bán mãi k ra đơn[NEXT]b đang bán ngành gì vậy'
-Không viết cả đoạn dài trong 1 tin
+Mỗi tin CHỈ 1 câu ngắn thôi, tối đa 10-15 từ
+Dùng [NEXT] để tách tin
+Ví dụ: 'ừ tớ hiểu cảm giác đó lắm[NEXT]hồi đó tớ cũng nợ nần chồng chất[NEXT]b đang nợ khoảng bao nhiêu vậy?'
+KHÔNG viết dài trong 1 tin
 
 TUYỆT ĐỐI KHÔNG bịa đặt câu chuyện hay thông tin về Thầy Mong. Chỉ được kể những gì có trong tài liệu được cung cấp. Nếu không có thông tin cụ thể thì nói 'cái này bạn có thể xem thêm tại đây nhé' rồi gửi link landing page, hoặc hỏi thêm về vấn đề của khách thay vì bịa.`;
 
@@ -390,7 +389,7 @@ async function sendMessengerParts(recipientId, text, env) {
 
   for (let index = 0; index < parts.length; index += 1) {
     if (index > 0) {
-      await delay(1500);
+      await delay(3000);
     }
 
     await sendMessengerText(recipientId, parts[index], env);
