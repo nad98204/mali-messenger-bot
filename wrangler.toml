@@ -1,3 +1,7 @@
 name = "mali-messenger"
 main = "worker.js"
 compatibility_date = "2024-01-01"
+
+[[kv_namespaces]]
+binding = "CHAT_HISTORY"
+id = "ef333e9a86934382b5b61164f94897eb"
