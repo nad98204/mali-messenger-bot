@@ -104,6 +104,12 @@ async function handleWebhook(payload, env) {
 async function handleMessage(senderId, userText, env) {
   try {
     let messages = await getChatHistory(senderId, env);
+    const isFirstMessage = messages.length === 0;
+
+    if (isFirstMessage) {
+      await saveToSheet(senderId, userText);
+    }
+
     messages.push({
       role: "user",
       content: userText,
@@ -130,6 +136,26 @@ async function handleMessage(senderId, userText, env) {
       "Hiện tại thầy chưa phản hồi được ngay. Cô/chú/bạn vui lòng nhắn lại sau ít phút nhé.",
       env,
     );
+  }
+}
+
+async function saveToSheet(senderId, firstMessage) {
+  try {
+    await fetch(
+      "https://script.google.com/macros/s/AKfycbxT6ubzHH46HjmqxvfPY_RuoSiHpnNCGaSUOp6SSAud7BDZpQec_Wy5QwZI4w5Y9ouB/exec",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          time: new Date().toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }),
+          facebook_id: senderId,
+          first_message: firstMessage,
+          status: "Mới",
+        }),
+      },
+    );
+  } catch (err) {
+    console.error("Sheet error:", err);
   }
 }
 
