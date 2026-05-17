@@ -39,7 +39,15 @@ Hon chuc nam truoc bi lua mat het tien, no nan, that nghiep. Thay doi nho Luat H
 NỘI DUNG KHÓA HỌC (dùng khi khách hỏi về nội dung học):
 ${RAG_DATA.buoi1}
 
-${RAG_DATA.buoi2}`;
+${RAG_DATA.buoi2}
+
+ĐỘ DÀI TIN NHẮN:
+
+Mỗi tin tối đa 2-3 câu ngắn
+Nếu cần nói nhiều thì chia thành nhiều tin nhắn liên tiếp, mỗi tin 1 ý
+Dùng ký hiệu [NEXT] để tách các tin nhắn
+Ví dụ đúng: 'ừ tớ hiểu[NEXT]hồi đó tớ cũng vậy, bán mãi k ra đơn[NEXT]b đang bán ngành gì vậy'
+Không viết cả đoạn dài trong 1 tin`;
 
 export default {
   async fetch(request, env, ctx) {
@@ -147,7 +155,7 @@ async function handleMessage(senderId, userText, env) {
       expirationTtl: 2592000,
     });
 
-    await sendMessengerText(senderId, answer, env);
+    await sendMessengerParts(senderId, answer, env);
   } catch (error) {
     console.error("Failed to reply message", error);
     await sendMessengerText(
@@ -368,6 +376,25 @@ async function askClaude(messages, env) {
     : "";
 
   return text || "Thầy đã nhận được tin nhắn và sẽ phản hồi cô/chú/bạn sớm nhé.";
+}
+
+async function sendMessengerParts(recipientId, text, env) {
+  const parts = text
+    .split("[NEXT]")
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  for (let index = 0; index < parts.length; index += 1) {
+    if (index > 0) {
+      await delay(1500);
+    }
+
+    await sendMessengerText(recipientId, parts[index], env);
+  }
+}
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function sendMessengerText(recipientId, text, env) {
