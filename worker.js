@@ -110,7 +110,8 @@ async function handleWebhook(payload, env) {
 
 async function handleMessage(senderId, userText, env) {
   try {
-    let messages = await getChatHistory(senderId, env);
+    const chatState = await getChatState(senderId, env);
+    let messages = chatState.messages;
     const isFirstMessage = messages.length === 0;
 
     if (isFirstMessage) {
@@ -131,8 +132,15 @@ async function handleMessage(senderId, userText, env) {
     });
     messages = messages.slice(-20);
 
-    await env.CHAT_HISTORY.put(senderId, JSON.stringify(messages), {
-      expirationTtl: 86400,
+    const updatedState = {
+      messages,
+      lastSeen: new Date().toISOString(),
+      status: getUpdatedStatus(userText, chatState.status),
+      firstMessage: chatState.firstMessage || userText,
+    };
+
+    await env.CHAT_HISTORY.put(senderId, JSON.stringify(updatedState), {
+      expirationTtl: 2592000,
     });
 
     await sendMessengerText(senderId, answer, env);
@@ -144,6 +152,29 @@ async function handleMessage(senderId, userText, env) {
       env,
     );
   }
+}
+
+function getUpdatedStatus(userText, currentStatus) {
+  const normalizedText = userText.toLowerCase();
+
+  if (
+    normalizedText.includes("đã đăng ký") ||
+    normalizedText.includes("đăng ký rồi") ||
+    normalizedText.includes("xong rồi")
+  ) {
+    return "registered";
+  }
+
+  if (
+    normalizedText.includes("đăng ký") ||
+    normalizedText.includes("link") ||
+    normalizedText.includes("tham gia") ||
+    normalizedText.includes("vé")
+  ) {
+    return "interested";
+  }
+
+  return currentStatus;
 }
 
 async function saveToSheet(senderId, firstMessage) {
@@ -166,31 +197,87 @@ async function saveToSheet(senderId, firstMessage) {
   }
 }
 
-async function getChatHistory(senderId, env) {
+async function getChatState(senderId, env) {
   const rawHistory = await env.CHAT_HISTORY.get(senderId);
 
   if (!rawHistory) {
-    return [];
+    return {
+      messages: [],
+      lastSeen: null,
+      status: "new",
+      firstMessage: "",
+    };
   }
 
   try {
-    const messages = JSON.parse(rawHistory);
+    const data = JSON.parse(rawHistory);
 
-    if (!Array.isArray(messages)) {
-      return [];
+    if (Array.isArray(data)) {
+      return {
+        messages: sanitizeMessages(data),
+        lastSeen: null,
+        status: "new",
+        firstMessage: getFirstUserMessage(data),
+      };
     }
 
-    return messages
-      .filter(
-        (message) =>
-          (message.role === "user" || message.role === "assistant") &&
-          typeof message.content === "string",
-      )
-      .slice(-20);
+    if (data && typeof data === "object") {
+      return {
+        messages: sanitizeMessages(data.messages),
+        lastSeen: typeof data.lastSeen === "string" ? data.lastSeen : null,
+        status: isValidStatus(data.status) ? data.status : "new",
+        firstMessage:
+          typeof data.firstMessage === "string"
+            ? data.firstMessage
+            : getFirstUserMessage(data.messages),
+      };
+    }
+
+    return {
+      messages: [],
+      lastSeen: null,
+      status: "new",
+      firstMessage: "",
+    };
   } catch (error) {
     console.error("Invalid chat history JSON", error);
+    return {
+      messages: [],
+      lastSeen: null,
+      status: "new",
+      firstMessage: "",
+    };
+  }
+}
+
+function sanitizeMessages(messages) {
+  if (!Array.isArray(messages)) {
     return [];
   }
+
+  return messages
+    .filter(
+      (message) =>
+        (message.role === "user" || message.role === "assistant") &&
+        typeof message.content === "string",
+    )
+    .slice(-20);
+}
+
+function getFirstUserMessage(messages) {
+  if (!Array.isArray(messages)) {
+    return "";
+  }
+
+  const firstUserMessage = messages.find(
+    (message) => message.role === "user" && typeof message.content === "string",
+  );
+
+  return firstUserMessage?.content || "";
+}
+
+function isValidStatus(status) {
+  return status === "new" || status === "interested" || status === "registered";
 }
 
 async function askClaude(messages, env) {
