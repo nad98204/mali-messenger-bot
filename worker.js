@@ -56,7 +56,16 @@ export default {
     }
 
     if (request.method === "POST") {
-      ctx.waitUntil(handleWebhook(request, env));
+      let payload;
+
+      try {
+        payload = await request.clone().json();
+      } catch (error) {
+        console.error("Invalid webhook JSON", error);
+        return new Response("OK", { status: 200 });
+      }
+
+      ctx.waitUntil(handleWebhook(payload, env));
       return new Response("OK", { status: 200 });
     }
 
@@ -79,16 +88,7 @@ function verifyWebhook(url, env) {
   return new Response("Forbidden", { status: 403 });
 }
 
-async function handleWebhook(request, env) {
-  let payload;
-
-  try {
-    payload = await request.json();
-  } catch (error) {
-    console.error("Invalid webhook JSON", error);
-    return;
-  }
-
+async function handleWebhook(payload, env) {
   if (payload.object !== "page" || !Array.isArray(payload.entry)) {
     return;
   }
