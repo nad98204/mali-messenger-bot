@@ -62,30 +62,31 @@ async function handleWebhook(request, env) {
         continue;
       }
 
-      tasks.push(replyToMessage(event.sender.id, event.message.text, env));
+      tasks.push(handleMessage(event.sender.id, event.message.text, env));
     }
   }
 
   await Promise.allSettled(tasks);
 }
 
-async function replyToMessage(senderId, userText, env) {
+async function handleMessage(senderId, userText, env) {
   try {
-    const messages = await getChatHistory(senderId, env);
+    let messages = await getChatHistory(senderId, env);
     messages.push({
       role: "user",
       content: userText,
     });
 
-    const limitedMessages = messages.slice(-20);
-    const answer = await askClaude(limitedMessages, env);
+    messages = messages.slice(-20);
+    const answer = await askClaude(messages, env);
 
-    limitedMessages.push({
+    messages.push({
       role: "assistant",
       content: answer,
     });
+    messages = messages.slice(-20);
 
-    await env.CHAT_HISTORY.put(senderId, JSON.stringify(limitedMessages.slice(-20)), {
+    await env.CHAT_HISTORY.put(senderId, JSON.stringify(messages), {
       expirationTtl: 86400,
     });
 
