@@ -38,11 +38,6 @@ Link: https://luathapdan.vn/dao-tao/khoi-thong-dong-tien/?utm_source=dang&utm_te
 VE THAY MONG (ke tu nhien khi phu hop):
 Hon chuc nam truoc bi lua mat het tien, no nan, that nghiep. Thay doi nho Luat Hap Dan va Nhan Qua.
 
-NỘI DUNG KHÓA HỌC (dùng khi khách hỏi về nội dung học):
-${RAG_DATA.buoi1}
-
-${RAG_DATA.buoi2}
-
 ĐỘ DÀI TIN NHẮN:
 
 Mỗi tin CHỈ 1 câu ngắn thôi, tối đa 10-15 từ
@@ -143,14 +138,14 @@ async function handleMessage(senderId, userText, env) {
       content: userText,
     });
 
-    messages = messages.slice(-20);
+    messages = messages.slice(-10);
     const answer = await askClaude(messages, env);
 
     messages.push({
       role: "assistant",
       content: answer,
     });
-    messages = messages.slice(-20);
+    messages = messages.slice(-10);
 
     const updatedState = {
       messages,
@@ -281,7 +276,7 @@ function sanitizeMessages(messages) {
         (message.role === "user" || message.role === "assistant") &&
         typeof message.content === "string",
     )
-    .slice(-20);
+    .slice(-10);
 }
 
 function getFirstUserMessage(messages) {
@@ -361,11 +356,23 @@ async function askClaude(messages, env) {
       "content-type": "application/json",
       "x-api-key": env.ANTHROPIC_API_KEY,
       "anthropic-version": "2023-06-01",
+      "anthropic-beta": "prompt-caching-2024-07-31",
     },
     body: JSON.stringify({
       model: CLAUDE_MODEL,
       max_tokens: 1000,
-      system: CLAUDE_SYSTEM_PROMPT,
+      system: [
+        {
+          type: "text",
+          text:
+            CLAUDE_SYSTEM_PROMPT +
+            "\n\nNỘI DUNG KHÓA HỌC:\n" +
+            RAG_DATA.buoi1 +
+            "\n\n" +
+            RAG_DATA.buoi2,
+          cache_control: { type: "ephemeral" },
+        },
+      ],
       messages,
     }),
   });
