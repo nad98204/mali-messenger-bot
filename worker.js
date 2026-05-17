@@ -147,6 +147,10 @@ async function handleMessage(senderId, userText, env) {
     });
     messages = messages.slice(-10);
 
+    if (messages.length >= 10) {
+      messages = await summarizeMessages(messages, env);
+    }
+
     const updatedState = {
       messages,
       lastSeen: new Date().toISOString(),
@@ -360,7 +364,7 @@ async function askClaude(messages, env) {
     },
     body: JSON.stringify({
       model: CLAUDE_MODEL,
-      max_tokens: 1000,
+      max_tokens: 300,
       system: [
         {
           type: "text",
@@ -391,6 +395,50 @@ async function askClaude(messages, env) {
     : "";
 
   return text || "Thầy đã nhận được tin nhắn và sẽ phản hồi cô/chú/bạn sớm nhé.";
+}
+
+async function summarizeMessages(messages, env) {
+  const lastMessages = messages.slice(-2);
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-api-key": env.ANTHROPIC_API_KEY,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: CLAUDE_MODEL,
+      max_tokens: 300,
+      system:
+        "Tóm tắt cuộc trò chuyện này trong 1-2 câu ngắn bằng tiếng Việt, chỉ giữ thông tin quan trọng về vấn đề của khách",
+      messages,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Claude summary error: ${response.status} ${await response.text()}`);
+  }
+
+  const data = await response.json();
+  const summary = Array.isArray(data.content)
+    ? data.content
+        .filter((block) => block.type === "text" && typeof block.text === "string")
+        .map((block) => block.text)
+        .join("\n")
+        .trim()
+    : "";
+
+  if (!summary) {
+    return messages;
+  }
+
+  return [
+    {
+      role: "user",
+      content: `[TÓM TẮT CUỘC HỘI THOẠI TRƯỚC: ${summary}]`,
+    },
+    ...lastMessages,
+  ];
 }
 
 async function sendMessengerParts(recipientId, text, env) {
