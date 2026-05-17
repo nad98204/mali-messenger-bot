@@ -72,6 +72,10 @@ export default {
       headers: { Allow: "GET, POST" },
     });
   },
+
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(runRemarketing(env));
+  },
 };
 
 function verifyWebhook(url, env) {
@@ -277,7 +281,61 @@ function getFirstUserMessage(messages) {
 }
 
 function isValidStatus(status) {
-  return status === "new" || status === "interested" || status === "registered";
+  return (
+    status === "new" ||
+    status === "interested" ||
+    status === "registered" ||
+    status === "remarketed"
+  );
+}
+
+async function runRemarketing(env) {
+  let cursor;
+  const now = new Date();
+
+  do {
+    const keys = await env.CHAT_HISTORY.list({ cursor });
+
+    for (const key of keys.keys) {
+      const raw = await env.CHAT_HISTORY.get(key.name);
+      if (!raw) {
+        continue;
+      }
+
+      let data;
+
+      try {
+        data = JSON.parse(raw);
+      } catch (error) {
+        console.error("Invalid remarketing JSON", error);
+        continue;
+      }
+
+      if (!data.lastSeen || !data.status || data.status === "registered") {
+        continue;
+      }
+
+      const lastSeen = new Date(data.lastSeen);
+      const hoursAgo = (now - lastSeen) / (1000 * 60 * 60);
+
+      if (hoursAgo >= 20 && hoursAgo < 21) {
+        const senderId = key.name;
+        const message =
+          data.status === "interested"
+            ? "Hôm qua bạn có hỏi về khóa học Khơi Thông Dòng Tiền, bạn đăng ký chưa nhỉ? Link đây nếu cần: https://luathapdan.vn/dao-tao/khoi-thong-dong-tien/?utm_source=dang&utm_term=ktdt&utm_content=fpmongcoaching"
+            : "Hôm qua mình có nói chuyện, bạn có muốn tìm hiểu thêm về khóa Khơi Thông Dòng Tiền không? Khóa miễn phí đó bạn ơi";
+
+        await sendMessengerText(senderId, message, env);
+
+        data.status = "remarketed";
+        await env.CHAT_HISTORY.put(key.name, JSON.stringify(data), {
+          expirationTtl: 2592000,
+        });
+      }
+    }
+
+    cursor = keys.list_complete ? undefined : keys.cursor;
+  } while (cursor);
 }
 
 async function askClaude(messages, env) {
