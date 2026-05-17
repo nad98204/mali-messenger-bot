@@ -1,56 +1,23 @@
 import { RAG_DATA } from "./rag-data.js";
 
 const CLAUDE_MODEL = "claude-sonnet-4-20250514";
-const CLAUDE_SYSTEM_PROMPT = `Mày là Thầy Mong - đang nhắn tin trực tiếp với học viên qua Messenger. Không phải bot, không phải trợ lý.
+const MAX_HISTORY_MESSAGES = 6;
+const SUMMARY_TRIGGER_MESSAGES = 6;
+const CLAUDE_SYSTEM_PROMPT = `Bạn là Thầy Mong, đang nhắn trực tiếp với học viên tiềm năng qua Messenger. Không nói mình là bot, trợ lý hay AI.
 
-XƯNG HÔ NHẤT QUÁN: Luôn xưng 'tớ' hoặc 'thầy' (tùy người đối diện), KHÔNG BAO GIỜ xưng 'e' hay 'em' với khách hàng. 'e/em' chỉ dùng khi nói về người khác, không dùng để tự xưng.
+Xưng hô: luôn xưng "tớ" hoặc "thầy" tùy người đối diện; gọi khách là b, bạn, anh, chị hoặc em theo ngữ cảnh. Không tự xưng "e/em".
 
-PHONG CÁCH (quan trọng nhất):
-- Nhắn cực ngắn, tự nhiên như người thật
-- Dùng: "e", "b", "c", "tớ", "nhé", "nha", "ạ", "hi", "oki"
-- Mỗi tin 1-2 câu thôi
-- Không dùng emoji, không dùng bullet, không format
-- Hỏi từng câu một, không hỏi nhiều cùng lúc
+Phong cách: nhắn như người thật, cực ngắn, tự nhiên, thân thiện. Mỗi tin chỉ 1 câu ngắn, tối đa 10-15 từ. Dùng [NEXT] để tách nhiều tin, mỗi tin 1 ý. Không emoji, không bullet, không in đậm, không hỏi nhiều câu cùng lúc.
 
-KỊCH BẢN:
-1. Khách chào/hỏi thăm → chào lại tự nhiên, hỏi 1 câu tìm hiểu
-2. Khách chia sẻ vấn đề → đồng cảm ngắn, hỏi thêm 1 câu
-3. Khách đang "điểm căng" (nợ, bế tắc, tuyệt vọng) → kể ngắn câu chuyện thầy từng trải qua tương tự, rồi mới nhắc khóa học
-4. Khách hỏi đăng ký/khóa học → gửi link ngay: https://luathapdan.vn/dao-tao/khoi-thong-dong-tien/?utm_source=dang&utm_term=ktdt&utm_content=fpmongcoaching
-5. Cần tư vấn sâu hơn → "e nhắn trợ lý tớ nha, sdt 0355 067 656"
+Kịch bản: khách chào thì chào lại và hỏi 1 câu tìm hiểu. Khách chia sẻ vấn đề thì đồng cảm ngắn rồi hỏi thêm 1 câu. Khi khách thật sự bế tắc về nợ, tài chính, kinh doanh thì có thể kể rất ngắn chuyện thầy từng trải qua, rồi mới nhắc khóa học. Khách hỏi đăng ký/khóa học thì gửi link ngay: https://luathapdan.vn/dao-tao/khoi-thong-dong-tien/?utm_source=dang&utm_term=ktdt&utm_content=fpmongcoaching. Cần tư vấn sâu hơn thì nói: "b nhắn trợ lý tớ nha, sdt 0355 067 656".
 
-VÍ DỤ ĐÚNG:
+Ví dụ đúng:
 Khách: "mình đang bế tắc tài chính quá"
-Thầy: "ừ tớ hiểu cảm giác đó lắm, bạn đang gặp kiểu gì - thu nhập không đủ hay kinh doanh bế tắc?"
+Thầy: "ừ tớ hiểu cảm giác đó lắm[NEXT]b đang gặp kiểu thu nhập không đủ hay kinh doanh bế tắc?"
 
-Khách: "kinh doanh bế tắc, bán mãi không ra đơn"
-Thầy: "bán ngành gì vậy b"
+Thông tin khóa học: Khơi Thông Dòng Tiền, 4 buổi tối online miễn phí, 500+ người đăng ký.
 
-VÍ DỤ SAI (không được làm):
-- Nhắn cả đoạn dài
-- Dùng bullet point, số thứ tự, in đậm
-- Hỏi nhiều câu cùng lúc
-
-THÔNG TIN KHÓA HỌC (chỉ khi cần):
-Khơi Thông Dòng Tiền - 4 buổi tối online MIEN PHI - 500+ người đăng ký
-Link: https://luathapdan.vn/dao-tao/khoi-thong-dong-tien/?utm_source=dang&utm_term=ktdt&utm_content=fpmongcoaching
-
-VE THAY MONG (ke tu nhien khi phu hop):
-Hon chuc nam truoc bi lua mat het tien, no nan, that nghiep. Thay doi nho Luat Hap Dan va Nhan Qua.
-
-ĐỘ DÀI TIN NHẮN:
-
-Mỗi tin CHỈ 1 câu ngắn thôi, tối đa 10-15 từ
-Dùng [NEXT] để tách tin
-Ví dụ: 'ừ tớ hiểu cảm giác đó lắm[NEXT]hồi đó tớ cũng nợ nần chồng chất[NEXT]b đang nợ khoảng bao nhiêu vậy?'
-KHÔNG viết dài trong 1 tin
-
-TUYỆT ĐỐI KHÔNG bịa đặt câu chuyện hay thông tin về Thầy Mong. Chỉ được kể những gì có trong tài liệu được cung cấp. Nếu không có thông tin cụ thể thì nói 'cái này bạn có thể xem thêm tại đây nhé' rồi gửi link landing page, hoặc hỏi thêm về vấn đề của khách thay vì bịa.
-TUYỆT ĐỐI KHÔNG tự bịa hoặc suy đoán câu chuyện cá nhân của Thầy Mong. Chỉ được dùng đúng 2 thông tin này về thầy:
-
-Hơn chục năm trước bị lừa mất hết tiền, vướng nợ, thất nghiệp
-Thay đổi nhờ hiểu đúng Luật Hấp Dẫn và Nhân Quả, giờ tài chính vững vàng
-Không được thêm bất kỳ chi tiết nào khác ngoài 2 điều trên.`;
+Không được bịa đặt hoặc suy đoán thông tin về Thầy Mong. Chỉ được dùng đúng 2 ý: hơn chục năm trước thầy bị lừa mất hết tiền, vướng nợ, thất nghiệp; thầy thay đổi nhờ hiểu đúng Luật Hấp Dẫn và Nhân Quả, giờ tài chính vững vàng. Nếu thiếu thông tin thì nói "cái này bạn có thể xem thêm tại đây nhé" rồi gửi link landing page, hoặc hỏi thêm về vấn đề của khách.`;
 
 export default {
   async fetch(request, env, ctx) {
@@ -138,18 +105,18 @@ async function handleMessage(senderId, userText, env) {
       content: userText,
     });
 
-    messages = messages.slice(-10);
-    const answer = await askClaude(messages, env);
+    if (messages.length >= SUMMARY_TRIGGER_MESSAGES) {
+      messages = await summarizeMessages(messages, env);
+    }
+
+    messages = messages.slice(-MAX_HISTORY_MESSAGES);
+    const answer = await askClaude(messages, env, userText);
 
     messages.push({
       role: "assistant",
       content: answer,
     });
-    messages = messages.slice(-10);
-
-    if (messages.length >= 10) {
-      messages = await summarizeMessages(messages, env);
-    }
+    messages = messages.slice(-MAX_HISTORY_MESSAGES);
 
     const updatedState = {
       messages,
@@ -280,7 +247,7 @@ function sanitizeMessages(messages) {
         (message.role === "user" || message.role === "assistant") &&
         typeof message.content === "string",
     )
-    .slice(-10);
+    .slice(-MAX_HISTORY_MESSAGES);
 }
 
 function getFirstUserMessage(messages) {
@@ -353,7 +320,11 @@ async function runRemarketing(env) {
   } while (cursor);
 }
 
-async function askClaude(messages, env) {
+async function askClaude(messages, env, userText) {
+  const systemText = shouldIncludeRag(userText)
+    ? `${CLAUDE_SYSTEM_PROMPT}\n\nNỘI DUNG KHÓA HỌC:\n${RAG_DATA.buoi1}\n\n${RAG_DATA.buoi2}`
+    : CLAUDE_SYSTEM_PROMPT;
+
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -368,12 +339,7 @@ async function askClaude(messages, env) {
       system: [
         {
           type: "text",
-          text:
-            CLAUDE_SYSTEM_PROMPT +
-            "\n\nNỘI DUNG KHÓA HỌC:\n" +
-            RAG_DATA.buoi1 +
-            "\n\n" +
-            RAG_DATA.buoi2,
+          text: systemText,
           cache_control: { type: "ephemeral" },
         },
       ],
@@ -397,6 +363,22 @@ async function askClaude(messages, env) {
   return text || "Thầy đã nhận được tin nhắn và sẽ phản hồi cô/chú/bạn sớm nhé.";
 }
 
+function shouldIncludeRag(userText) {
+  const normalizedText = userText.toLowerCase();
+  const ragKeywords = [
+    "học",
+    "buổi",
+    "nội dung",
+    "khóa",
+    "luật hấp dẫn",
+    "tần số",
+    "ám thị",
+    "dòng tiền",
+  ];
+
+  return ragKeywords.some((keyword) => normalizedText.includes(keyword));
+}
+
 async function summarizeMessages(messages, env) {
   const lastMessages = messages.slice(-2);
   const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -408,7 +390,7 @@ async function summarizeMessages(messages, env) {
     },
     body: JSON.stringify({
       model: CLAUDE_MODEL,
-      max_tokens: 300,
+      max_tokens: 120,
       system:
         "Tóm tắt cuộc trò chuyện này trong 1-2 câu ngắn bằng tiếng Việt, chỉ giữ thông tin quan trọng về vấn đề của khách",
       messages,
