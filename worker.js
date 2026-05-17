@@ -1,3 +1,5 @@
+import { RAG_DATA } from "./rag-data.js";
+
 const CLAUDE_MODEL = "claude-sonnet-4-20250514";
 const CLAUDE_SYSTEM_PROMPT = `Mày là Thầy Mong - đang nhắn tin trực tiếp với học viên qua Messenger. Không phải bot, không phải trợ lý.
 
@@ -32,7 +34,12 @@ Khơi Thông Dòng Tiền - 4 buổi tối online MIEN PHI - 500+ người đăn
 Link: https://luathapdan.vn/dao-tao/khoi-thong-dong-tien/?utm_source=dang&utm_term=ktdt&utm_content=fpmongcoaching
 
 VE THAY MONG (ke tu nhien khi phu hop):
-Hon chuc nam truoc bi lua mat het tien, no nan, that nghiep. Thay doi nho Luat Hap Dan va Nhan Qua.`;
+Hon chuc nam truoc bi lua mat het tien, no nan, that nghiep. Thay doi nho Luat Hap Dan va Nhan Qua.
+
+NỘI DUNG KHÓA HỌC (dùng khi khách hỏi về nội dung học):
+${RAG_DATA.buoi1}
+
+${RAG_DATA.buoi2}`;
 
 export default {
   async fetch(request, env, ctx) {
