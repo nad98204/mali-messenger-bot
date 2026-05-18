@@ -8,3 +8,10 @@ id = "ef333e9a86934382b5b61164f94897eb"
 
 [triggers]
 crons = ["0 * * * *"]
+
+[[vectorize]]
+binding = "RAG_INDEX"
+index_name = "mali-rag"
+
+[ai]
+binding = "AI"

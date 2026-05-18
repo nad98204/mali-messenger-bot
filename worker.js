@@ -1,5 +1,3 @@
-import { RAG_DATA } from "./rag-data.js";
-
 const CLAUDE_MODEL = "claude-sonnet-4-20250514";
 const MAX_HISTORY_MESSAGES = 6;
 const SUMMARY_TRIGGER_MESSAGES = 6;
@@ -333,8 +331,9 @@ async function runRemarketing(env) {
 }
 
 async function askClaude(messages, env, userText) {
-  const systemText = shouldIncludeRag(userText)
-    ? `${CLAUDE_SYSTEM_PROMPT}\n\nNỘI DUNG KHÓA HỌC:\n${RAG_DATA.buoi1}\n\n${RAG_DATA.buoi2}`
+  const ragContext = await retrieveRagContext(userText, env);
+  const systemText = ragContext
+    ? `${CLAUDE_SYSTEM_PROMPT}\n\nNỘI DUNG LIÊN QUAN TỪ KHÓA HỌC:\n${ragContext}`
     : CLAUDE_SYSTEM_PROMPT;
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -375,20 +374,30 @@ async function askClaude(messages, env, userText) {
   return text || "Thầy đã nhận được tin nhắn và sẽ phản hồi cô/chú/bạn sớm nhé.";
 }
 
-function shouldIncludeRag(userText) {
-  const normalizedText = userText.toLowerCase();
-  const ragKeywords = [
-    "học",
-    "buổi",
-    "nội dung",
-    "khóa",
-    "luật hấp dẫn",
-    "tần số",
-    "ám thị",
-    "dòng tiền",
-  ];
+async function retrieveRagContext(userText, env) {
+  try {
+    const queryEmbedding = await env.AI.run("@cf/baai/bge-m3", { text: [userText] });
+    const queryVector = queryEmbedding.data?.[0];
 
-  return ragKeywords.some((keyword) => normalizedText.includes(keyword));
+    if (!Array.isArray(queryVector)) {
+      return null;
+    }
+
+    const results = await env.RAG_INDEX.query(queryVector, {
+      topK: 2,
+      returnMetadata: "all",
+    });
+
+    const chunks = (results.matches || [])
+      .filter((match) => match.score >= 0.5)
+      .map((match) => match.metadata?.text)
+      .filter((text) => typeof text === "string" && text.trim());
+
+    return chunks.length > 0 ? chunks.join("\n\n") : null;
+  } catch (error) {
+    console.error("RAG retrieval error", error);
+    return null;
+  }
 }
 
 async function summarizeMessages(messages, env) {
