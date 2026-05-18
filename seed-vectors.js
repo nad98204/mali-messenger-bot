@@ -39,6 +39,13 @@ export default {
     const chunks = [
       ...chunkSection("buoi1", RAG_DATA.buoi1),
       ...chunkSection("buoi2", RAG_DATA.buoi2),
+      ...chunkSection("thayMong", RAG_DATA.thayMong),
+      ...chunkSection("khoaChuyenSauTongQuan", RAG_DATA.khoaChuyenSauTongQuan),
+      ...chunkSection("khoaChuyenSauDoiTuong", RAG_DATA.khoaChuyenSauDoiTuong),
+      ...chunkSection("khoaChuyenSauLoTrinh", RAG_DATA.khoaChuyenSauLoTrinh),
+      ...chunkSection("khoaChuyenSauKhacBiet", RAG_DATA.khoaChuyenSauKhacBiet),
+      ...chunkSection("khoaChuyenSauQuyenLoi", RAG_DATA.khoaChuyenSauQuyenLoi),
+      ...chunkSection("khoaChuyenSauTuVan", RAG_DATA.khoaChuyenSauTuVan),
     ];
     const seeded = [];
 
