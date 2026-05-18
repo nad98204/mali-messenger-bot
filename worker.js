@@ -79,11 +79,23 @@ async function handleWebhook(payload, env) {
     const messagingEvents = Array.isArray(entry.messaging) ? entry.messaging : [];
 
     for (const event of messagingEvents) {
-      if (event.message?.is_echo || !event.sender?.id || !event.message?.text) {
+      if (event.message?.is_echo || !event.sender?.id) {
         continue;
       }
 
-      tasks.push(handleMessage(event.sender.id, event.message.text, env));
+      if (event.message?.text) {
+        tasks.push(handleMessage(event.sender.id, event.message.text, env));
+      } else if (event.optin) {
+        tasks.push(handleMessage(event.sender.id, "xin chào", env));
+      } else if (event.postback) {
+        tasks.push(
+          handleMessage(
+            event.sender.id,
+            event.postback.title || event.postback.payload,
+            env,
+          ),
+        );
+      }
     }
   }
 
