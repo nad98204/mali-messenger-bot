@@ -1,26 +1,35 @@
 const CLAUDE_MODEL = "claude-sonnet-4-20250514";
+const CLAUDE_SUMMARY_MODEL = "claude-3-5-haiku-20241022";
 const MAX_HISTORY_MESSAGES = 6;
 const SUMMARY_TRIGGER_MESSAGES = 6;
 const CLAUDE_SYSTEM_PROMPT = `Bạn là Thầy Mong, đang nhắn trực tiếp với học viên tiềm năng qua Messenger. Không nói mình là bot, trợ lý hay AI.
 
-Xưng hô: luôn xưng "tớ" hoặc "thầy" tùy người đối diện; gọi khách là b, bạn, anh, chị hoặc em theo ngữ cảnh. Không tự xưng "e/em".
+Xưng hô: Nếu khách xưng "tôi" hoặc "mình" thì xưng "mình" và gọi khách là "anh/chị" kèm tên nếu biết. Nếu khách xưng "em" thì xưng "mình" và gọi khách là "em". Không bao giờ dùng "tôi" hay "tớ". Không tự xưng "e/em".
 
-Phong cách: nhắn như người thật, cực ngắn, tự nhiên, thân thiện. Mỗi tin chỉ 1 câu ngắn, tối đa 10-15 từ. Dùng [NEXT] để tách nhiều tin, mỗi tin 1 ý. Không emoji, không bullet, không in đậm, không hỏi nhiều câu cùng lúc.
+Phong cách: Nhắn như người thật, ngắn, tự nhiên, có chiều sâu. Mỗi tin chỉ 1 ý, tối đa 10-18 từ. Dùng [NEXT] để tách nhiều tin. Không emoji, không bullet, không in đậm. Chỉ hỏi 1 câu mỗi lần.
 
-Kịch bản: khách chào thì chào lại và hỏi 1 câu tìm hiểu. Khách chia sẻ vấn đề thì đồng cảm ngắn rồi hỏi thêm 1 câu. Khi khách thật sự bế tắc về nợ, tài chính, kinh doanh thì có thể kể rất ngắn chuyện thầy từng trải qua, rồi mới nhắc khóa học. Khách hỏi đăng ký khóa miễn phí thì gửi link ngay: https://luathapdan.vn/dao-tao/khoi-thong-dong-tien/?utm_source=dang&utm_term=ktdt&utm_content=fpmongcoaching. Cần tư vấn sâu hơn thì nói: "b nhắn trợ lý tớ nha, sdt 0355 067 656".
+Mục tiêu: không chỉ hỏi. Hãy tư vấn theo nhịp: lắng nghe -> chẩn đoán -> gỡ góc nhìn -> chốt mềm khóa Khơi Thông Dòng Tiền khi đủ tín hiệu.
 
-Khi khách nhắn từ khóa chứa 'nhanqua', 'nhận quà', 'qua': gửi ngay link quà tặng rồi hỏi 1 câu về vấn đề tài chính. Sau khi khách chia sẻ vấn đề bất kỳ: đồng cảm 1 câu ngắn rồi gửi link đăng ký khóa học ngay, không dẫn dắt dài.
+Luật chống hỏi nhiều:
+- Không hỏi quá 2 lượt liên tiếp.
+- Nếu đã biết vấn đề chính và thời gian/hoàn cảnh, dừng hỏi và chuyển sang chẩn đoán.
+- Nếu khách nói bế tắc, nợ, kẹt dòng tiền, tụt doanh thu, lo lắng, sợ tiền hoặc xác nhận "đúng/có", không hỏi vòng nữa.
 
-Ví dụ đúng:
-Khách: "mình đang bế tắc tài chính quá"
-Thầy: "ừ tớ hiểu cảm giác đó lắm[NEXT]b đang gặp kiểu thu nhập không đủ hay kinh doanh bế tắc?"
+Chẩn đoán ngắn theo vấn đề:
+- Nợ/kẹt tiền: nỗi sợ và áp lực làm mình càng co lại, quyết định tiền bạc dễ rối.
+- Ít khách/doanh thu tụt: năng lượng thiếu tin và cần tiền gấp khiến cách bán hàng bị nặng.
+- Trì hoãn/không dám làm: thường là niềm tin tiền bạc sai và sợ thất bại đang kéo lại.
+- Lo lắng/tiêu cực: cảm xúc thấp làm dòng chảy tài chính bị nghẽn.
 
-Thông tin khóa học: Khơi Thông Dòng Tiền, 4 buổi tối online miễn phí, 500+ người đăng ký.
-Khóa chuyên sâu: Luật Hấp Dẫn Online - Chuyên Sâu, 12 buổi online qua Zoom, có video xem lại, nhóm học tập, bài tập, thiền dẫn, coaching và Leader hỗ trợ.
-Tư vấn khóa học: khách mới tìm hiểu, chưa tin, chưa sẵn sàng hoặc chưa có tiền thì mời khóa miễn phí. Khách đã rõ vấn đề, đang nợ, kinh doanh bế tắc, thu nhập thấp lâu năm, trì hoãn, muốn chữa lành tài chính hoặc cần lộ trình bài bản thì gợi ý khóa chuyên sâu.
-Học phí khóa chuyên sâu: không báo giá sớm. Chỉ khi khách cảm xúc lên cao và muốn học thì xin số điện thoại để tư vấn hoặc chuyển admin/trợ lý chốt. Không hứa chắc chắn giàu, hết nợ, tăng thu nhập, khách tự tìm đến, hoặc đổi đời.
+Khi chẩn đoán: phản chiếu đúng vấn đề khách, nói 1 insight ngắn, rồi dẫn vào năng lượng tiền bạc. Đừng hứa chữa khỏi, giàu lên, hết nợ hay đổi đời.
 
-Không được bịa đặt hoặc suy đoán thông tin về Thầy Mong. Chỉ được dùng đúng những thông tin này về thầy Mong: hơn chục năm trước bị lừa mất hết tiền tích lũy, vướng nợ, bị đuổi việc, thất nghiệp. Thay đổi nhờ hiểu đúng Luật Hấp Dẫn và Nhân Quả — 3 rào cản: tần số rung động thấp, niềm tin tài chính sai lệch, hiểu sai Nhân Quả. Hiện tại tài chính vững vàng, đã giúp 10.000+ học viên. Nếu thiếu thông tin thì nói "cái này bạn có thể xem thêm tại đây nhé" rồi gửi link landing page, hoặc hỏi thêm về vấn đề của khách.`;
+Khi chốt: Nếu khách đã chia sẻ rõ đau đớn hoặc đã xác nhận bị năng lượng tiền bạc chặn, hỏi: "Em đăng ký khóa Khơi Thông Dòng Tiền rồi chưa?" Nếu khách chưa đăng ký thì gửi link ngay: https://luathapdan.vn/dao-tao/khoi-thong-dong-tien/?utm_source=dang&utm_term=ktdt&utm_content=fpmongcoaching
+
+Nếu đã đăng ký hoặc đã học rồi: "Tuyệt vời quá[NEXT]Hẹn gặp lại em/anh/chị ở buổi học tiếp theo nhé" rồi dừng, không hỏi thêm.
+
+Cần tư vấn sâu hơn: "Em nhắn trợ lý mình nha, sdt 0355 067 656"
+
+Không được bịa đặt thông tin về Thầy Mong. Chỉ dùng đúng 2 ý khi cần kể chuyện: hơn chục năm trước thầy bị lừa mất hết tiền, vướng nợ, thất nghiệp; thầy thay đổi nhờ hiểu đúng Luật Hấp Dẫn và Nhân Quả, giờ tài chính vững vàng.`;
 
 export default {
   async fetch(request, env, ctx) {
@@ -82,6 +91,11 @@ async function handleWebhook(payload, env) {
     const messagingEvents = Array.isArray(entry.messaging) ? entry.messaging : [];
 
     for (const event of messagingEvents) {
+      if (event.postback?.payload === "GET_STARTED" && event.sender?.id) {
+        tasks.push(handleMessage(event.sender.id, "Xin chào", env));
+        continue;
+      }
+
       if (event.message?.is_echo || !event.sender?.id) {
         continue;
       }
@@ -120,12 +134,42 @@ async function handleMessage(senderId, userText, env) {
       content: userText,
     });
 
+    const customerProfile = updateCustomerProfile(
+      userText,
+      chatState.customerProfile,
+      messages,
+    );
+    const ruleBasedAnswer = getRuleBasedAnswer(userText, messages);
+
+    if (ruleBasedAnswer) {
+      messages.push({
+        role: "assistant",
+        content: ruleBasedAnswer,
+      });
+      messages = messages.slice(-MAX_HISTORY_MESSAGES);
+
+      const updatedState = {
+        messages,
+        lastSeen: new Date().toISOString(),
+        status: getUpdatedStatus(userText, chatState.status),
+        firstMessage: chatState.firstMessage || userText,
+        customerProfile,
+      };
+
+      await env.CHAT_HISTORY.put(senderId, JSON.stringify(updatedState), {
+        expirationTtl: 2592000,
+      });
+
+      await sendMessengerParts(senderId, ruleBasedAnswer, env);
+      return;
+    }
+
     if (messages.length >= SUMMARY_TRIGGER_MESSAGES) {
       messages = await summarizeMessages(messages, env);
     }
 
     messages = messages.slice(-MAX_HISTORY_MESSAGES);
-    const answer = await askClaude(messages, env, userText);
+    const answer = await askClaude(messages, env, userText, customerProfile);
 
     messages.push({
       role: "assistant",
@@ -138,6 +182,7 @@ async function handleMessage(senderId, userText, env) {
       lastSeen: new Date().toISOString(),
       status: getUpdatedStatus(userText, chatState.status),
       firstMessage: chatState.firstMessage || userText,
+      customerProfile,
     };
 
     await env.CHAT_HISTORY.put(senderId, JSON.stringify(updatedState), {
@@ -155,27 +200,382 @@ async function handleMessage(senderId, userText, env) {
   }
 }
 
-function getUpdatedStatus(userText, currentStatus) {
-  const normalizedText = userText.toLowerCase();
+function getRuleBasedAnswer(userText, messages = []) {
+  const normalizedText = normalizeVietnameseText(userText);
+  const greetings = ["chao", "xin chao", "chao thay", "xin chao thay", "hello", "hi"];
+
+  if (greetings.includes(normalizedText)) {
+    return "Chào anh/chị, mình có thể hỗ trợ gì về kinh doanh hoặc tài chính?";
+  }
+
+  if (["chua", "em chua", "minh chua", "toi chua"].includes(normalizedText)) {
+    const lastAssistantMessage = getLastAssistantMessage(messages);
+
+    if (lastAssistantMessage && isRegistrationQuestion(lastAssistantMessage.content)) {
+      return "Thế em kích link sau đăng ký nhé[NEXT]Đây là link nha: https://luathapdan.vn/dao-tao/khoi-thong-dong-tien/?utm_source=dang&utm_term=ktdt&utm_content=fpmongcoaching[NEXT]Kích vào link đăng ký luôn nhé";
+    }
+  }
 
   if (
-    normalizedText.includes("đã đăng ký") ||
-    normalizedText.includes("đăng ký rồi") ||
-    normalizedText.includes("xong rồi")
+    normalizedText.includes("da dang ky") ||
+    normalizedText.includes("dang ky roi") ||
+    normalizedText.includes("hoc roi") ||
+    normalizedText.includes("da hoc")
+  ) {
+    return "Tuyệt vời quá[NEXT]Hẹn gặp lại em/anh/chị ở buổi học tiếp theo nhé";
+  }
+
+  if (
+    normalizedText.includes("xin link") ||
+    normalizedText.includes("gui link") ||
+    normalizedText.includes("cho em link") ||
+    normalizedText.includes("link dang ky") ||
+    normalizedText.includes("dang ky o dau") ||
+    normalizedText.includes("muon dang ky")
+  ) {
+    return "Thế em kích link sau đăng ký nhé[NEXT]Đây là link nha: https://luathapdan.vn/dao-tao/khoi-thong-dong-tien/?utm_source=dang&utm_term=ktdt&utm_content=fpmongcoaching[NEXT]Kích vào link đăng ký luôn nhé";
+  }
+
+  if (
+    normalizedText.includes("so dien thoai") ||
+    normalizedText.includes("sdt") ||
+    normalizedText.includes("tro ly") ||
+    normalizedText.includes("tu van sau")
+  ) {
+    return "Em nhắn trợ lý mình nha, sdt 0355 067 656";
+  }
+
+  const exactAcknowledgements = ["vang", "da"];
+  const flexibleAcknowledgements = ["ok", "cam on", "thank", "thanks"];
+
+  if (
+    exactAcknowledgements.includes(normalizedText) ||
+    flexibleAcknowledgements.some(
+      (acknowledgement) =>
+        normalizedText === acknowledgement || normalizedText.startsWith(`${acknowledgement} `),
+    )
+  ) {
+    return "Mình nhận được rồi nhé";
+  }
+
+  return null;
+}
+
+function getLastAssistantMessage(messages) {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index].role === "assistant") {
+      return messages[index];
+    }
+  }
+
+  return null;
+}
+
+function isRegistrationQuestion(text) {
+  const normalizedText = normalizeVietnameseText(text);
+
+  return (
+    normalizedText.includes("dang ky") &&
+    normalizedText.includes("khoi thong dong tien") &&
+    normalizedText.includes("chua")
+  );
+}
+
+function updateCustomerProfile(userText, currentProfile = {}, messages = []) {
+  const normalizedText = normalizeVietnameseText(userText);
+  const profile = sanitizeCustomerProfile(currentProfile);
+  const lastAssistantMessage = getLastAssistantMessage(messages);
+  const questionStreak = countRecentAssistantQuestions(messages);
+
+  if (
+    normalizedText.includes("da dang ky") ||
+    normalizedText.includes("dang ky roi") ||
+    normalizedText.includes("xong roi")
+  ) {
+    profile.registered = true;
+    profile.nextStep = "Hẹn khách ở buổi học tiếp theo";
+  } else if (
+    normalizedText.includes("chua dang ky") ||
+    (["chua", "em chua", "minh chua", "toi chua"].includes(normalizedText) &&
+      lastAssistantMessage &&
+      isRegistrationQuestion(lastAssistantMessage.content))
+  ) {
+    profile.registered = false;
+    profile.nextStep = "Gửi link đăng ký khóa Khơi Thông Dòng Tiền";
+  }
+
+  if (normalizedText.includes("hoc roi") || normalizedText.includes("da hoc")) {
+    profile.hasAttended = true;
+    profile.registered = true;
+    profile.nextStep = "Hẹn khách ở buổi học tiếp theo";
+  }
+
+  const business = extractBusiness(userText, normalizedText);
+  if (business) {
+    profile.business = business;
+  }
+
+  const duration = extractDuration(normalizedText);
+  if (duration) {
+    profile.duration = duration;
+  }
+
+  const problemType = classifyProblemType(normalizedText);
+  if (problemType) {
+    profile.problemType = problemType;
+  }
+
+  if (isProblemMessage(normalizedText)) {
+    profile.problem = truncateText(userText, 160);
+    if (!profile.nextStep) {
+      profile.nextStep = "Tìm hiểu thêm vấn đề và dẫn vào năng lượng tiền bạc";
+    }
+  }
+
+  profile.questionStreak = questionStreak;
+  profile.readyToClose = shouldMoveToClose(profile, normalizedText, questionStreak);
+  profile.conversationStage = getConversationStage(profile, normalizedText, questionStreak);
+  profile.strategy = getConversationStrategy(profile);
+
+  return profile;
+}
+
+function sanitizeCustomerProfile(profile) {
+  if (!profile || typeof profile !== "object") {
+    return {};
+  }
+
+  return {
+    business: typeof profile.business === "string" ? profile.business : "",
+    problem: typeof profile.problem === "string" ? profile.problem : "",
+    duration: typeof profile.duration === "string" ? profile.duration : "",
+    problemType: typeof profile.problemType === "string" ? profile.problemType : "",
+    registered: typeof profile.registered === "boolean" ? profile.registered : null,
+    hasAttended: typeof profile.hasAttended === "boolean" ? profile.hasAttended : null,
+    nextStep: typeof profile.nextStep === "string" ? profile.nextStep : "",
+    conversationStage:
+      typeof profile.conversationStage === "string" ? profile.conversationStage : "discovering",
+    questionStreak: Number.isInteger(profile.questionStreak) ? profile.questionStreak : 0,
+    readyToClose: typeof profile.readyToClose === "boolean" ? profile.readyToClose : false,
+    strategy: typeof profile.strategy === "string" ? profile.strategy : "",
+  };
+}
+
+function extractBusiness(userText, normalizedText) {
+  const businessMarkers = ["kinh doanh", "ban", "lam"];
+  const marker = businessMarkers.find((item) => normalizedText.includes(`${item} `));
+
+  if (!marker) {
+    return "";
+  }
+
+  const markerIndex = normalizedText.indexOf(`${marker} `);
+  const originalText = userText.slice(markerIndex + marker.length).trim();
+
+  return truncateText(originalText, 80);
+}
+
+function extractDuration(normalizedText) {
+  const durationMatch = normalizedText.match(
+    /((hon|gan|khoang|tam|vai)\s+)?\d+\s+(ngay|tuan|thang|nam)|may\s+(ngay|tuan|thang|nam)|vai\s+(ngay|tuan|thang|nam)/,
+  );
+
+  return durationMatch ? durationMatch[0] : "";
+}
+
+function isProblemMessage(normalizedText) {
+  const problemKeywords = [
+    "be tac",
+    "thieu tien",
+    "het tien",
+    "dong tien",
+    "tai chinh",
+    "doanh thu",
+    "thu nhap",
+    "it khach",
+    "ban cham",
+    "khong ra tien",
+    "lo lang",
+    "kho khan",
+  ];
+
+  return (
+    /\bno\b/.test(normalizedText) ||
+    problemKeywords.some((keyword) => normalizedText.includes(keyword))
+  );
+}
+
+function classifyProblemType(normalizedText) {
+  if (/\bno\b/.test(normalizedText) || normalizedText.includes("dong tien")) {
+    return "nợ/kẹt dòng tiền";
+  }
+
+  if (
+    normalizedText.includes("it khach") ||
+    normalizedText.includes("doanh thu") ||
+    normalizedText.includes("ban cham")
+  ) {
+    return "ít khách/doanh thu tụt";
+  }
+
+  if (
+    normalizedText.includes("tri hoan") ||
+    normalizedText.includes("khong dam") ||
+    normalizedText.includes("so that bai")
+  ) {
+    return "trì hoãn/sợ hành động";
+  }
+
+  if (
+    normalizedText.includes("lo lang") ||
+    normalizedText.includes("tieu cuc") ||
+    normalizedText.includes("met moi") ||
+    normalizedText.includes("be tac")
+  ) {
+    return "lo lắng/bế tắc cảm xúc";
+  }
+
+  if (
+    normalizedText.includes("tai chinh") ||
+    normalizedText.includes("thu nhap") ||
+    normalizedText.includes("khong ra tien")
+  ) {
+    return "tài chính/thu nhập thấp";
+  }
+
+  return "";
+}
+
+function countRecentAssistantQuestions(messages) {
+  const assistantMessages = messages
+    .filter((message) => message.role === "assistant" && typeof message.content === "string")
+    .slice(-3);
+
+  let count = 0;
+
+  for (let index = assistantMessages.length - 1; index >= 0; index -= 1) {
+    const content = assistantMessages[index].content;
+
+    if (!content.includes("?")) {
+      break;
+    }
+
+    count += 1;
+  }
+
+  return count;
+}
+
+function isAffirmativeResponse(normalizedText) {
+  const affirmatives = [
+    "co",
+    "dung",
+    "dung roi",
+    "chinh xac",
+    "em bi",
+    "co bi",
+    "giong vay",
+    "phai",
+    "vang",
+    "da",
+  ];
+
+  return affirmatives.some(
+    (affirmative) =>
+      normalizedText === affirmative || normalizedText.startsWith(`${affirmative} `),
+  );
+}
+
+function shouldMoveToClose(profile, normalizedText, questionStreak) {
+  if (profile.registered === true || profile.hasAttended === true) {
+    return false;
+  }
+
+  if (profile.registered === false) {
+    return true;
+  }
+
+  const hasEnoughContext =
+    Boolean(profile.problemType || profile.problem) && Boolean(profile.duration || profile.business);
+  const hasStrongPain = isProblemMessage(normalizedText);
+
+  return (
+    hasEnoughContext ||
+    (hasStrongPain && questionStreak >= 1) ||
+    (isAffirmativeResponse(normalizedText) && Boolean(profile.problemType || profile.problem)) ||
+    questionStreak >= 2
+  );
+}
+
+function getConversationStage(profile, normalizedText, questionStreak) {
+  if (profile.registered === true || profile.hasAttended === true) {
+    return "registered";
+  }
+
+  if (profile.readyToClose) {
+    return "closing";
+  }
+
+  if (profile.problemType || (profile.problem && questionStreak >= 1)) {
+    return "diagnosing";
+  }
+
+  if (isProblemMessage(normalizedText)) {
+    return "diagnosing";
+  }
+
+  return "discovering";
+}
+
+function getConversationStrategy(profile) {
+  if (profile.conversationStage === "registered") {
+    return "Dừng hỏi, chỉ hẹn khách ở buổi học tiếp theo.";
+  }
+
+  if (profile.conversationStage === "closing") {
+    return "Không hỏi thêm vấn đề; phản chiếu ngắn, chốt mềm bằng câu hỏi đã đăng ký chưa hoặc gửi link nếu khách chưa đăng ký.";
+  }
+
+  if (profile.conversationStage === "diagnosing") {
+    return "Không hỏi lan man; chẩn đoán vấn đề, đưa insight năng lượng tiền bạc, rồi dẫn sang chốt mềm.";
+  }
+
+  return "Hỏi tối đa 1 câu để lấy thông tin còn thiếu, ưu tiên ngành/vấn đề/thời gian.";
+}
+
+function getUpdatedStatus(userText, currentStatus) {
+  const normalizedText = normalizeVietnameseText(userText);
+
+  if (
+    normalizedText.includes("da dang ky") ||
+    normalizedText.includes("dang ky roi") ||
+    normalizedText.includes("hoc roi") ||
+    normalizedText.includes("da hoc") ||
+    normalizedText.includes("xong roi")
   ) {
     return "registered";
   }
 
   if (
-    normalizedText.includes("đăng ký") ||
+    normalizedText.includes("dang ky") ||
     normalizedText.includes("link") ||
     normalizedText.includes("tham gia") ||
-    normalizedText.includes("vé")
+    normalizedText.includes("ve")
   ) {
     return "interested";
   }
 
   return currentStatus;
+}
+
+function normalizeVietnameseText(text) {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 async function saveToSheet(senderId, firstMessage) {
@@ -207,6 +607,7 @@ async function getChatState(senderId, env) {
       lastSeen: null,
       status: "new",
       firstMessage: "",
+      customerProfile: {},
     };
   }
 
@@ -219,6 +620,7 @@ async function getChatState(senderId, env) {
         lastSeen: null,
         status: "new",
         firstMessage: getFirstUserMessage(data),
+        customerProfile: {},
       };
     }
 
@@ -231,6 +633,7 @@ async function getChatState(senderId, env) {
           typeof data.firstMessage === "string"
             ? data.firstMessage
             : getFirstUserMessage(data.messages),
+        customerProfile: sanitizeCustomerProfile(data.customerProfile),
       };
     }
 
@@ -239,6 +642,7 @@ async function getChatState(senderId, env) {
       lastSeen: null,
       status: "new",
       firstMessage: "",
+      customerProfile: {},
     };
   } catch (error) {
     console.error("Invalid chat history JSON", error);
@@ -247,6 +651,7 @@ async function getChatState(senderId, env) {
       lastSeen: null,
       status: "new",
       firstMessage: "",
+      customerProfile: {},
     };
   }
 }
@@ -335,11 +740,14 @@ async function runRemarketing(env) {
   } while (cursor);
 }
 
-async function askClaude(messages, env, userText) {
-  const ragContext = await retrieveRagContext(userText, env);
+async function askClaude(messages, env, userText, customerProfile = {}) {
+  const ragContext = shouldRetrieveRagContext(userText)
+    ? await retrieveRagContext(userText, env)
+    : null;
   const systemText = ragContext
     ? `${CLAUDE_SYSTEM_PROMPT}\n\nNỘI DUNG LIÊN QUAN TỪ KHÓA HỌC:\n${ragContext}`
     : CLAUDE_SYSTEM_PROMPT;
+  const claudeMessages = getClaudeMessages(messages, Boolean(ragContext), customerProfile);
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -351,7 +759,7 @@ async function askClaude(messages, env, userText) {
     },
     body: JSON.stringify({
       model: CLAUDE_MODEL,
-      max_tokens: 300,
+      max_tokens: 200,
       system: [
         {
           type: "text",
@@ -359,7 +767,7 @@ async function askClaude(messages, env, userText) {
           cache_control: { type: "ephemeral" },
         },
       ],
-      messages,
+      messages: claudeMessages,
     }),
   });
 
@@ -379,6 +787,146 @@ async function askClaude(messages, env, userText) {
   return text || "Thầy đã nhận được tin nhắn và sẽ phản hồi cô/chú/bạn sớm nhé.";
 }
 
+function getClaudeMessages(messages, hasRagContext, customerProfile = {}) {
+  const profileMessage = getCustomerProfileMessage(customerProfile);
+
+  if (!hasRagContext) {
+    return profileMessage ? [profileMessage, ...messages] : messages;
+  }
+
+  const summaryMessage = messages.find(
+    (message) =>
+      message.role === "user" &&
+      typeof message.content === "string" &&
+      normalizeVietnameseText(message.content).includes("tom tat cuoc hoi thoai truoc"),
+  );
+  const recentMessages = messages.slice(-2);
+
+  if (!summaryMessage || recentMessages.includes(summaryMessage)) {
+    return profileMessage ? [profileMessage, ...recentMessages] : recentMessages;
+  }
+
+  return profileMessage
+    ? [profileMessage, summaryMessage, ...recentMessages]
+    : [summaryMessage, ...recentMessages];
+}
+
+function getCustomerProfileMessage(customerProfile) {
+  const profile = sanitizeCustomerProfile(customerProfile);
+  const details = [];
+
+  if (profile.business) {
+    details.push(`ngành: ${profile.business}`);
+  }
+
+  if (profile.problem) {
+    details.push(`vấn đề: ${profile.problem}`);
+  }
+
+  if (profile.duration) {
+    details.push(`thời gian: ${profile.duration}`);
+  }
+
+  if (profile.problemType) {
+    details.push(`loại vấn đề: ${profile.problemType}`);
+  }
+
+  if (profile.registered !== null) {
+    details.push(`đăng ký: ${profile.registered ? "đã đăng ký" : "chưa đăng ký"}`);
+  }
+
+  if (profile.hasAttended !== null) {
+    details.push(`đã học: ${profile.hasAttended ? "rồi" : "chưa"}`);
+  }
+
+  if (profile.nextStep) {
+    details.push(`bước tiếp theo: ${profile.nextStep}`);
+  }
+
+  if (profile.conversationStage) {
+    details.push(`giai đoạn: ${profile.conversationStage}`);
+  }
+
+  if (profile.questionStreak > 0) {
+    details.push(`vừa hỏi liên tiếp: ${profile.questionStreak}`);
+  }
+
+  if (profile.readyToClose) {
+    details.push("đã đủ tín hiệu để chốt mềm");
+  }
+
+  if (profile.strategy) {
+    details.push(`chiến lược lượt này: ${profile.strategy}`);
+  }
+
+  if (details.length === 0) {
+    return null;
+  }
+
+  return {
+    role: "user",
+    content: `[HỒ SƠ KHÁCH: ${details.join("; ")}]`,
+  };
+}
+
+function shouldRetrieveRagContext(userText) {
+  const normalizedText = normalizeVietnameseText(userText);
+
+  if (normalizedText.length < 12) {
+    return false;
+  }
+
+  const shortReplies = [
+    "chao",
+    "hello",
+    "hi",
+    "ok",
+    "vang",
+    "da",
+    "co",
+    "chua",
+    "cam on",
+  ];
+
+  if (shortReplies.includes(normalizedText)) {
+    return false;
+  }
+
+  const skipPhrases = [
+    "dang ky roi",
+    "da dang ky",
+    "hoc roi",
+    "xin link",
+    "gui link",
+    "cho em link",
+  ];
+
+  if (skipPhrases.some((phrase) => normalizedText.includes(phrase))) {
+    return false;
+  }
+
+  const ragKeywords = [
+    "khoa",
+    "hoc phi",
+    "gia",
+    "bao nhieu",
+    "may buoi",
+    "lich hoc",
+    "noi dung",
+    "chuong trinh",
+    "zoom",
+    "video",
+    "thay mong",
+    "luat hap dan",
+    "nhan qua",
+    "khoi thong dong tien",
+    "chuyen sau",
+    "tu van",
+  ];
+
+  return ragKeywords.some((keyword) => normalizedText.includes(keyword));
+}
+
 async function retrieveRagContext(userText, env) {
   try {
     const queryEmbedding = await env.AI.run("@cf/baai/bge-m3", { text: [userText] });
@@ -396,13 +944,24 @@ async function retrieveRagContext(userText, env) {
     const chunks = (results.matches || [])
       .filter((match) => match.score >= 0.5)
       .map((match) => match.metadata?.text)
-      .filter((text) => typeof text === "string" && text.trim());
+      .filter((text) => typeof text === "string" && text.trim())
+      .map((text) => truncateText(text, 600));
 
-    return chunks.length > 0 ? chunks.join("\n\n") : null;
+    return chunks.length > 0 ? truncateText(chunks.join("\n\n"), 1200) : null;
   } catch (error) {
     console.error("RAG retrieval error", error);
     return null;
   }
+}
+
+function truncateText(text, maxLength) {
+  const normalizedText = text.replace(/\s+/g, " ").trim();
+
+  if (normalizedText.length <= maxLength) {
+    return normalizedText;
+  }
+
+  return `${normalizedText.slice(0, maxLength).trim()}...`;
 }
 
 async function summarizeMessages(messages, env) {
@@ -415,16 +974,17 @@ async function summarizeMessages(messages, env) {
       "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify({
-      model: CLAUDE_MODEL,
-      max_tokens: 120,
+      model: CLAUDE_SUMMARY_MODEL,
+      max_tokens: 70,
       system:
-        "Tóm tắt cuộc trò chuyện này trong 1-2 câu ngắn bằng tiếng Việt, chỉ giữ thông tin quan trọng về vấn đề của khách",
+        "Tóm tắt cực ngắn bằng tiếng Việt, tối đa 45 từ. Chỉ giữ: vấn đề chính của khách, trạng thái đã/chưa đăng ký hoặc đã học nếu có, bước tiếp theo cần làm. Không kể lại hội thoại, không thêm lời khuyên.",
       messages,
     }),
   });
 
   if (!response.ok) {
-    throw new Error(`Claude summary error: ${response.status} ${await response.text()}`);
+    console.error(`Claude summary error: ${response.status} ${await response.text()}`);
+    return messages;
   }
 
   const data = await response.json();
@@ -456,16 +1016,46 @@ async function sendMessengerParts(recipientId, text, env) {
     .filter(Boolean);
 
   for (let index = 0; index < parts.length; index += 1) {
-    if (index > 0) {
-      await delay(3000);
-    }
-
+    await sendMessengerAction(recipientId, "typing_on", env);
+    await delay(getHumanTypingDelay(parts[index], index));
     await sendMessengerText(recipientId, parts[index], env);
   }
 }
 
+function getHumanTypingDelay(text, index) {
+  const wordCount = text.split(/\s+/).filter(Boolean).length;
+  const charCount = text.length;
+  const baseDelay = index === 0 ? 1800 : 1200;
+  const typingDelay = baseDelay + wordCount * 180 + charCount * 18;
+  const jitter = Math.floor(Math.random() * 900);
+
+  return Math.min(Math.max(typingDelay + jitter, 1800), 8500);
+}
+
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function sendMessengerAction(recipientId, action, env) {
+  const response = await fetch(
+    `https://graph.facebook.com/v19.0/me/messages?access_token=${encodeURIComponent(
+      env.PAGE_ACCESS_TOKEN,
+    )}`,
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        recipient: { id: recipientId },
+        sender_action: action,
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Messenger action error: ${response.status} ${await response.text()}`);
+  }
 }
 
 async function sendMessengerText(recipientId, text, env) {
