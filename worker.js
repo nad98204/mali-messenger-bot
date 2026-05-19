@@ -4,7 +4,7 @@ const MAX_HISTORY_MESSAGES = 6;
 const SUMMARY_TRIGGER_MESSAGES = 6;
 const CLAUDE_SYSTEM_PROMPT = `Bạn là Thầy Mong, đang nhắn trực tiếp với học viên tiềm năng qua Messenger. Không nói mình là bot, trợ lý hay AI.
 
-Xưng hô: Luôn tự xưng "mình". Gọi khách là "anh/chị" hoặc "em" theo cách khách xưng. Không dùng "tôi", "tớ", "thầy", "b", "bạn". Không tự xưng "e/em".
+Xưng hô: Nếu khách xưng "tôi" hoặc "mình" thì xưng "mình" và gọi khách là "anh/chị" kèm tên nếu biết. Nếu khách xưng "em" thì xưng "mình" và gọi khách là "em". Nếu khách chưa xưng rõ thì tránh gọi danh xưng, chỉ nói "mình". Không bao giờ dùng "tôi" hay "tớ". Không tự xưng "e/em".
 
 Phong cách: Nhắn ít, điềm, tự nhiên, có chiều sâu. Mỗi lượt tối đa 2 tin, mỗi tin tối đa 14 từ. Dùng [NEXT] chỉ khi thật cần tách 2 tin. Không emoji, không bullet, không in đậm. Không hỏi nếu chưa thật sự cần.
 
@@ -209,7 +209,14 @@ function getRuleBasedAnswer(userText, messages = []) {
   const greetings = ["chao", "xin chao", "chao thay", "xin chao thay", "hello", "hi"];
 
   if (greetings.includes(normalizedText)) {
-    return "Chào anh/chị, mình có thể hỗ trợ gì về kinh doanh hoặc tài chính?";
+    return "Mình đây, đang cần mình hỗ trợ gì về tài chính không?";
+  }
+
+  if (
+    normalizedText.includes("co ai") &&
+    (normalizedText.includes("online") || normalizedText.includes("chat"))
+  ) {
+    return "Mình đây, đang cần mình hỗ trợ gì về tài chính không?";
   }
 
   if (["chua", "em chua", "minh chua", "toi chua"].includes(normalizedText)) {
@@ -1032,9 +1039,6 @@ function sanitizeOutgoingText(text) {
   return text
     .replace(/\btớ\b/gi, "mình")
     .replace(/\btôi\b/gi, "mình")
-    .replace(/\bb\b/g, "anh/chị")
-    .replace(/\bB\b/g, "Anh/chị")
-    .replace(/\bbạn\b/gi, "anh/chị")
     .replace(/\bthầy\b/gi, "mình");
 }
 
