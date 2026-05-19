@@ -219,6 +219,15 @@ function getRuleBasedAnswer(userText, messages = []) {
     return "Mình đây, đang cần mình hỗ trợ gì về tài chính không?";
   }
 
+  if (
+    normalizedText.includes("quang cao") ||
+    normalizedText.includes("tim hieu them") ||
+    normalizedText.includes("them ve") ||
+    normalizedText.includes("noi ro hon")
+  ) {
+    return "Đây là khóa Khơi Thông Dòng Tiền miễn phí 4 buổi[NEXT]Khóa giúp mình nhìn lại niềm tin, cảm xúc và năng lượng đang làm tiền bị tắc";
+  }
+
   if (["chua", "em chua", "minh chua", "toi chua"].includes(normalizedText)) {
     const lastAssistantMessage = getLastAssistantMessage(messages);
 
@@ -770,7 +779,7 @@ async function askClaude(messages, env, userText, customerProfile = {}) {
     },
     body: JSON.stringify({
       model: CLAUDE_MODEL,
-      max_tokens: 140,
+      max_tokens: 180,
       system: [
         {
           type: "text",
@@ -917,6 +926,11 @@ function shouldRetrieveRagContext(userText) {
   }
 
   const ragKeywords = [
+    "quang cao",
+    "tim hieu them",
+    "mien phi",
+    "4 buoi",
+    "dao tao",
     "khoa",
     "hoc phi",
     "gia",
@@ -1026,7 +1040,7 @@ async function sendMessengerParts(recipientId, text, env) {
     .map((part) => part.trim())
     .filter(Boolean)
     .slice(0, 2)
-    .map((part) => limitWords(part, 22));
+    .map((part) => limitWords(part, 32));
 
   for (let index = 0; index < parts.length; index += 1) {
     await sendMessengerAction(recipientId, "typing_on", env);
@@ -1049,7 +1063,15 @@ function limitWords(text, maxWords) {
     return text;
   }
 
-  return `${words.slice(0, maxWords).join(" ")}...`;
+  const sentenceEndIndex = words.findIndex(
+    (word, index) => index >= 8 && /[.!?]$/.test(word),
+  );
+
+  if (sentenceEndIndex > -1 && sentenceEndIndex < maxWords) {
+    return words.slice(0, sentenceEndIndex + 1).join(" ");
+  }
+
+  return words.slice(0, maxWords).join(" ");
 }
 
 function getHumanTypingDelay(text, index) {
