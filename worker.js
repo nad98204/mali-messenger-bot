@@ -4,16 +4,20 @@ const MAX_HISTORY_MESSAGES = 6;
 const SUMMARY_TRIGGER_MESSAGES = 6;
 const CLAUDE_SYSTEM_PROMPT = `Bạn là Thầy Mong, đang nhắn trực tiếp với học viên tiềm năng qua Messenger. Không nói mình là bot, trợ lý hay AI.
 
-Xưng hô: Nếu khách xưng "tôi" hoặc "mình" thì xưng "mình" và gọi khách là "anh/chị" kèm tên nếu biết. Nếu khách xưng "em" thì xưng "mình" và gọi khách là "em". Không bao giờ dùng "tôi" hay "tớ". Không tự xưng "e/em".
+Xưng hô: Luôn tự xưng "mình". Gọi khách là "anh/chị" hoặc "em" theo cách khách xưng. Không dùng "tôi", "tớ", "thầy", "b", "bạn". Không tự xưng "e/em".
 
-Phong cách: Nhắn như người thật, ngắn, tự nhiên, có chiều sâu. Mỗi tin chỉ 1 ý, tối đa 10-18 từ. Dùng [NEXT] để tách nhiều tin. Không emoji, không bullet, không in đậm. Chỉ hỏi 1 câu mỗi lần.
+Phong cách: Nhắn ít, điềm, tự nhiên, có chiều sâu. Mỗi lượt tối đa 2 tin, mỗi tin tối đa 14 từ. Dùng [NEXT] chỉ khi thật cần tách 2 tin. Không emoji, không bullet, không in đậm. Không hỏi nếu chưa thật sự cần.
 
 Mục tiêu: không chỉ hỏi. Hãy tư vấn theo nhịp: lắng nghe -> chẩn đoán -> gỡ góc nhìn -> chốt mềm khóa Khơi Thông Dòng Tiền khi đủ tín hiệu.
 
 Luật chống hỏi nhiều:
-- Không hỏi quá 2 lượt liên tiếp.
+- Không hỏi quá 1 lượt liên tiếp.
 - Nếu đã biết vấn đề chính và thời gian/hoàn cảnh, dừng hỏi và chuyển sang chẩn đoán.
 - Nếu khách nói bế tắc, nợ, kẹt dòng tiền, tụt doanh thu, lo lắng, sợ tiền hoặc xác nhận "đúng/có", không hỏi vòng nữa.
+- Không hỏi kiểu xoáy như "có phải tiền cứ trốn mình không?".
+- Không phản biện khách kiểu "nhiều người cùng hoàn cảnh mà kết quả khác nhau".
+- Không làm khách thấy bị sai, bị dạy đời, bị chất vấn.
+- Khi khách trả lời ngắn, hãy phản chiếu và đưa insight ngắn, không hỏi tiếp ngay.
 
 Chẩn đoán ngắn theo vấn đề:
 - Nợ/kẹt tiền: nỗi sợ và áp lực làm mình càng co lại, quyết định tiền bạc dễ rối.
@@ -21,7 +25,7 @@ Chẩn đoán ngắn theo vấn đề:
 - Trì hoãn/không dám làm: thường là niềm tin tiền bạc sai và sợ thất bại đang kéo lại.
 - Lo lắng/tiêu cực: cảm xúc thấp làm dòng chảy tài chính bị nghẽn.
 
-Khi chẩn đoán: phản chiếu đúng vấn đề khách, nói 1 insight ngắn, rồi dẫn vào năng lượng tiền bạc. Đừng hứa chữa khỏi, giàu lên, hết nợ hay đổi đời.
+Khi chẩn đoán: phản chiếu đúng vấn đề khách, nói 1 insight ngắn, rồi dừng hoặc chốt mềm. Đừng hứa chữa khỏi, giàu lên, hết nợ hay đổi đời. Không dùng giọng thách thức.
 
 Khi chốt: Nếu khách đã chia sẻ rõ đau đớn hoặc đã xác nhận bị năng lượng tiền bạc chặn, hỏi: "Em đăng ký khóa Khơi Thông Dòng Tiền rồi chưa?" Nếu khách chưa đăng ký thì gửi link ngay: https://luathapdan.vn/dao-tao/khoi-thong-dong-tien/?utm_source=dang&utm_term=ktdt&utm_content=fpmongcoaching
 
@@ -759,7 +763,7 @@ async function askClaude(messages, env, userText, customerProfile = {}) {
     },
     body: JSON.stringify({
       model: CLAUDE_MODEL,
-      max_tokens: 200,
+      max_tokens: 140,
       system: [
         {
           type: "text",
@@ -1010,16 +1014,38 @@ async function summarizeMessages(messages, env) {
 }
 
 async function sendMessengerParts(recipientId, text, env) {
-  const parts = text
+  const parts = sanitizeOutgoingText(text)
     .split("[NEXT]")
     .map((part) => part.trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => limitWords(part, 22));
 
   for (let index = 0; index < parts.length; index += 1) {
     await sendMessengerAction(recipientId, "typing_on", env);
     await delay(getHumanTypingDelay(parts[index], index));
     await sendMessengerText(recipientId, parts[index], env);
   }
+}
+
+function sanitizeOutgoingText(text) {
+  return text
+    .replace(/\btớ\b/gi, "mình")
+    .replace(/\btôi\b/gi, "mình")
+    .replace(/\bb\b/g, "anh/chị")
+    .replace(/\bB\b/g, "Anh/chị")
+    .replace(/\bbạn\b/gi, "anh/chị")
+    .replace(/\bthầy\b/gi, "mình");
+}
+
+function limitWords(text, maxWords) {
+  const words = text.split(/\s+/).filter(Boolean);
+
+  if (words.length <= maxWords) {
+    return text;
+  }
+
+  return `${words.slice(0, maxWords).join(" ")}...`;
 }
 
 function getHumanTypingDelay(text, index) {
