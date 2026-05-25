@@ -225,11 +225,22 @@ async function handleMessage(senderId, userText, env) {
       content: userText,
     });
 
-    const customerProfile = updateCustomerProfile(
+    let customerProfile = updateCustomerProfile(
       userText,
       chatState.customerProfile,
       messages,
     );
+
+    if (ahachatCourseAnswer) {
+      const isRegistered = !hasNegativeResponse(normalizedText);
+      customerProfile = {
+        ...customerProfile,
+        registered: isRegistered,
+        nextStep: isRegistered
+          ? "Hẹn khách ở buổi học tiếp theo"
+          : "Gửi link đăng ký khóa Khơi Thông Dòng Tiền",
+      };
+    }
 
     if (isMeditationFileRequest(normalizedText)) {
       messages.push({
@@ -268,7 +279,7 @@ async function handleMessage(senderId, userText, env) {
       const updatedState = {
         messages,
         lastSeen: new Date().toISOString(),
-        status: getUpdatedStatus(userText, chatState.status),
+        status: getAhachatAnswerStatus(normalizedText, ahachatCourseAnswer) || getUpdatedStatus(userText, chatState.status),
         firstMessage: chatState.firstMessage || userText,
         customerProfile,
         ahachatGate: ahachatCourseAnswer || isHumanFollowupMessage(normalizedText) ? null : chatState.ahachatGate,
@@ -298,7 +309,7 @@ async function handleMessage(senderId, userText, env) {
     const updatedState = {
       messages,
       lastSeen: new Date().toISOString(),
-      status: getUpdatedStatus(userText, chatState.status),
+      status: getAhachatAnswerStatus(normalizedText, ahachatCourseAnswer) || getUpdatedStatus(userText, chatState.status),
       firstMessage: chatState.firstMessage || userText,
       customerProfile,
       ahachatGate: ahachatCourseAnswer || isHumanFollowupMessage(normalizedText) ? null : chatState.ahachatGate,
@@ -777,7 +788,7 @@ function shouldHandleAhachatCourseAnswer(normalizedText, chatState) {
     return false;
   }
 
-  return isCourseParticipationAnswer(normalizedText);
+  return isCourseParticipationAnswer(normalizedText) || isCourseParticipationAffirmative(normalizedText);
 }
 
 function getAhachatWaitingState(chatState) {
@@ -867,6 +878,28 @@ function isCourseParticipationAnswer(normalizedText) {
     normalizedText.includes("tham gia roi") ||
     normalizedText.includes("da tham gia")
   );
+}
+
+function isCourseParticipationAffirmative(normalizedText) {
+  const exactAnswers = [
+    "co",
+    "co a",
+    "co ak",
+    "em co",
+    "minh co",
+    "toi co",
+    "vang",
+    "vang a",
+    "vang ak",
+    "da",
+    "da a",
+    "da ak",
+    "roi",
+    "roi a",
+    "roi ak",
+  ];
+
+  return exactAnswers.includes(normalizedText);
 }
 
 function isAhachatFlowMessage(normalizedText) {
@@ -1210,6 +1243,14 @@ function getUpdatedStatus(userText, currentStatus) {
   }
 
   return currentStatus;
+}
+
+function getAhachatAnswerStatus(normalizedText, isAhachatCourseAnswer) {
+  if (!isAhachatCourseAnswer) {
+    return "";
+  }
+
+  return hasNegativeResponse(normalizedText) ? "interested" : "registered";
 }
 
 function normalizeVietnameseText(text) {
