@@ -6,6 +6,10 @@ const SUMMARY_RECENT_MESSAGES = 6;
 const RAG_RECENT_MESSAGES = 8;
 const AHACHAT_COURSE_QUESTION =
   "À bên mình có tổ chức khoá KHƠI THÔNG DÒNG TIỀN hoàn toàn Miễn Phí giúp mọi người kết nối sâu với năng lượng tiền bạc. Bạn đã tham gia rồi chứ";
+const MEDITATION_FILE_BLOCK =
+  "1. THIỀN HÚT TIỀN VỀ TRONG 7 NGÀY\nhttps://youtu.be/HL_cWTS2Ay8?si=r5iZTaeCLspOxDzX\n\n2. Thiền Thu Hút Mục Tiêu Siêu Tốc\nhttps://www.youtube.com/watch?v=7MFMY9NG3FY&t=16s";
+const MEDITATION_FILE_NOTE =
+  "Lưu ý: Làm vào thời điểm buổi sáng từ 4h-6h30 trong 1 tuần liên tục để đạt hiệu quả cao nhất";
 const CLAUDE_SYSTEM_PROMPT = `Bạn là Thầy Mong, đang nhắn trực tiếp với học viên tiềm năng qua Messenger. Không nói mình là bot, trợ lý hay AI.
 
 Xưng hô: Luôn xưng "mình". Mặc định gọi khách là "bạn"; nếu khách tự xưng "em" thì có thể gọi khách là "em". Nếu khách chưa xưng rõ thì tránh gọi danh xưng khi không cần. Không bao giờ dùng "tôi" hay "tớ". Không tự xưng "e/em". Tuyệt đối không dùng danh xưng theo giới tính để gọi khách.
@@ -226,6 +230,32 @@ async function handleMessage(senderId, userText, env) {
       chatState.customerProfile,
       messages,
     );
+
+    if (isMeditationFileRequest(normalizedText)) {
+      messages.push({
+        role: "assistant",
+        content: `${MEDITATION_FILE_BLOCK}[NEXT]${MEDITATION_FILE_NOTE}[NEXT]${AHACHAT_COURSE_QUESTION}`,
+      });
+      messages = messages.slice(-MAX_HISTORY_MESSAGES);
+
+      await saveChatState(
+        senderId,
+        {
+          messages,
+          lastSeen: new Date().toISOString(),
+          status: "interested",
+          firstMessage: chatState.firstMessage || userText,
+          customerProfile,
+          ahachatGate: "ready_for_course_answer",
+          ahachatGateAt: new Date().toISOString(),
+        },
+        env,
+      );
+
+      await sendMeditationFileFlow(senderId, env);
+      return;
+    }
+
     const ruleBasedAnswer = getRuleBasedAnswer(userText, messages);
 
     if (ruleBasedAnswer) {
@@ -466,6 +496,24 @@ function isCourseOverviewQuestion(normalizedText) {
     normalizedText.includes("ben minh co khoa") ||
     normalizedText.includes("co khoa gi")
   );
+}
+
+function isMeditationFileRequest(normalizedText) {
+  const asksForFile =
+    normalizedText.includes("xin file") ||
+    normalizedText.includes("nhan file") ||
+    normalizedText.includes("gui file") ||
+    normalizedText.includes("cho em file") ||
+    normalizedText.includes("cho toi file") ||
+    normalizedText.includes("lay file");
+
+  const asksForMeditation =
+    normalizedText.includes("thien") ||
+    normalizedText.includes("thoi mien") ||
+    normalizedText.includes("qua thoi mien") ||
+    normalizedText.includes("phan qua");
+
+  return asksForFile && asksForMeditation;
 }
 
 function isDebtFamilyPressureStatement(normalizedText) {
@@ -1633,6 +1681,13 @@ async function sendMessengerParts(recipientId, text, env) {
     await delay(getHumanTypingDelay(parts[index], index));
     await sendMessengerText(recipientId, parts[index], env);
   }
+}
+
+async function sendMeditationFileFlow(recipientId, env) {
+  await sendMessengerText(recipientId, MEDITATION_FILE_BLOCK, env);
+  await sendMessengerText(recipientId, MEDITATION_FILE_NOTE, env);
+  await delay(30000);
+  await sendMessengerText(recipientId, AHACHAT_COURSE_QUESTION, env);
 }
 
 function sanitizeOutgoingText(text) {
