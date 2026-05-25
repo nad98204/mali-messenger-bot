@@ -375,19 +375,13 @@ function getRuleBasedAnswer(userText, messages = []) {
     return "Đây là khóa Khơi Thông Dòng Tiền miễn phí 4 buổi[NEXT]Khóa giúp mình nhìn lại niềm tin, cảm xúc và năng lượng đang làm tiền bị tắc";
   }
 
-  if (
-    ["chua", "em chua", "minh chua", "toi chua", "chua tham gia"].includes(normalizedText)
-  ) {
-    const lastAssistantMessage = getLastAssistantMessage(messages);
+  const lastAssistantMessage = getLastAssistantMessage(messages);
 
-    if (lastAssistantMessage && isRegistrationQuestion(lastAssistantMessage.content)) {
-      return "Thế bạn kích link sau đăng ký nhé[NEXT]Đây là link nha: https://luathapdan.vn/dao-tao/khoi-thong-dong-tien-thuonghieu[NEXT]Kích vào link đăng ký luôn nhé";
-    }
+  if (isUnregisteredCourseResponse(normalizedText, lastAssistantMessage?.content || "")) {
+    return "Thế bạn kích link sau đăng ký nhé[NEXT]Đây là link nha: https://luathapdan.vn/dao-tao/khoi-thong-dong-tien-thuonghieu[NEXT]Kích vào link đăng ký luôn nhé";
   }
 
   if (isAffirmativeResponse(normalizedText)) {
-    const lastAssistantMessage = getLastAssistantMessage(messages);
-
     if (lastAssistantMessage && isRegistrationQuestion(lastAssistantMessage.content)) {
       return "Tuyệt vời quá[NEXT]Hẹn gặp lại bạn ở buổi học tiếp theo nhé";
     }
@@ -406,12 +400,7 @@ function getRuleBasedAnswer(userText, messages = []) {
   }
 
   if (
-    normalizedText.includes("da dang ky") ||
-    normalizedText.includes("dang ky roi") ||
-    normalizedText.includes("hoc roi") ||
-    normalizedText.includes("da hoc") ||
-    normalizedText.includes("tham gia roi") ||
-    normalizedText.includes("da tham gia")
+    isRegisteredCourseResponse(normalizedText)
   ) {
     return "Tuyệt vời quá[NEXT]Hẹn gặp lại bạn ở buổi học tiếp theo nhé";
   }
@@ -659,6 +648,38 @@ function isRegistrationQuestion(text) {
   );
 }
 
+function hasNegativeResponse(normalizedText) {
+  return /\b(khong|chua)\b/.test(normalizedText);
+}
+
+function isUnregisteredCourseResponse(normalizedText, lastAssistantText = "") {
+  const hasCourseNegation =
+    normalizedText.includes("chua dang ky") ||
+    normalizedText.includes("chua tham gia") ||
+    normalizedText.includes("chua hoc");
+
+  if (hasCourseNegation) {
+    return true;
+  }
+
+  return isRegistrationQuestion(lastAssistantText) && /\bchua\b/.test(normalizedText);
+}
+
+function isRegisteredCourseResponse(normalizedText) {
+  if (hasNegativeResponse(normalizedText)) {
+    return false;
+  }
+
+  return (
+    normalizedText.includes("da dang ky") ||
+    normalizedText.includes("dang ky roi") ||
+    normalizedText.includes("hoc roi") ||
+    normalizedText.includes("da hoc") ||
+    normalizedText.includes("tham gia roi") ||
+    normalizedText.includes("da tham gia")
+  );
+}
+
 function getAssistantQuestionIntent(text) {
   const normalizedText = normalizeVietnameseText(text);
 
@@ -838,6 +859,10 @@ function isCourseParticipationAnswer(normalizedText) {
 
   return (
     exactAnswers.includes(normalizedText) ||
+    isUnregisteredCourseResponse(normalizedText, AHACHAT_COURSE_QUESTION) ||
+    isRegisteredCourseResponse(normalizedText) ||
+    normalizedText.includes("co roi") ||
+    normalizedText.includes("da roi") ||
     normalizedText.includes("chua tham gia") ||
     normalizedText.includes("tham gia roi") ||
     normalizedText.includes("da tham gia")
@@ -874,26 +899,19 @@ function updateCustomerProfile(userText, currentProfile = {}, messages = []) {
     profile.registered = true;
     profile.nextStep = "Hẹn khách ở buổi học tiếp theo";
   } else if (
-    normalizedText.includes("da dang ky") ||
-    normalizedText.includes("dang ky roi") ||
-    normalizedText.includes("xong roi") ||
-    normalizedText.includes("tham gia roi") ||
-    normalizedText.includes("da tham gia")
+    isRegisteredCourseResponse(normalizedText) ||
+    (!hasNegativeResponse(normalizedText) && normalizedText.includes("xong roi"))
   ) {
     profile.registered = true;
     profile.nextStep = "Hẹn khách ở buổi học tiếp theo";
   } else if (
-    normalizedText.includes("chua dang ky") ||
-    normalizedText.includes("chua tham gia") ||
-    (["chua", "em chua", "minh chua", "toi chua"].includes(normalizedText) &&
-      lastAssistantMessage &&
-      isRegistrationQuestion(lastAssistantMessage.content))
+    isUnregisteredCourseResponse(normalizedText, lastAssistantMessage?.content || "")
   ) {
     profile.registered = false;
     profile.nextStep = "Gửi link đăng ký khóa Khơi Thông Dòng Tiền";
   }
 
-  if (normalizedText.includes("hoc roi") || normalizedText.includes("da hoc")) {
+  if (!hasNegativeResponse(normalizedText) && (normalizedText.includes("hoc roi") || normalizedText.includes("da hoc"))) {
     profile.hasAttended = true;
     profile.registered = true;
     profile.nextStep = "Hẹn khách ở buổi học tiếp theo";
@@ -1088,6 +1106,10 @@ function countRecentAssistantQuestions(messages) {
 }
 
 function isAffirmativeResponse(normalizedText) {
+  if (hasNegativeResponse(normalizedText)) {
+    return false;
+  }
+
   const affirmatives = [
     "co",
     "e co",
@@ -1172,13 +1194,8 @@ function getUpdatedStatus(userText, currentStatus) {
   const normalizedText = normalizeVietnameseText(userText);
 
   if (
-    normalizedText.includes("da dang ky") ||
-    normalizedText.includes("dang ky roi") ||
-    normalizedText.includes("hoc roi") ||
-    normalizedText.includes("da hoc") ||
-    normalizedText.includes("xong roi") ||
-    normalizedText.includes("tham gia roi") ||
-    normalizedText.includes("da tham gia")
+    isRegisteredCourseResponse(normalizedText) ||
+    (!hasNegativeResponse(normalizedText) && normalizedText.includes("xong roi"))
   ) {
     return "registered";
   }
