@@ -490,6 +490,9 @@ function isAdvancedCourseQuestion(normalizedText) {
 
 function isCourseOverviewQuestion(normalizedText) {
   return (
+    normalizedText.includes("khoa nay la khoa gi") ||
+    normalizedText.includes("khoa do la khoa gi") ||
+    normalizedText.includes("day la khoa gi") ||
     normalizedText.includes("khoa hoc gi") ||
     normalizedText.includes("co khoa hoc nao") ||
     normalizedText.includes("ben ban co khoa") ||
