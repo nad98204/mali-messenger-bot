@@ -1,5 +1,16 @@
 import { RAG_DATA } from "./rag-data.js";
 
+const LEGACY_SOURCE_KEYS = [
+  "buoi1",
+  "buoi2",
+  "khoaChuyenSauTongQuan",
+  "khoaChuyenSauDoiTuong",
+  "khoaChuyenSauLoTrinh",
+  "khoaChuyenSauKhacBiet",
+  "khoaChuyenSauQuyenLoi",
+  "khoaChuyenSauTuVan",
+];
+
 function chunkSection(key, text) {
   const lines = text
     .split("\n")
@@ -37,17 +48,18 @@ export default {
     }
 
     const chunks = [
-      ...chunkSection("buoi1", RAG_DATA.buoi1),
-      ...chunkSection("buoi2", RAG_DATA.buoi2),
+      ...chunkSection("khoiThongDongTienTongQuan", RAG_DATA.khoiThongDongTienTongQuan),
+      ...chunkSection("khoiThongDongTienNhanDienTacNghe", RAG_DATA.khoiThongDongTienNhanDienTacNghe),
+      ...chunkSection("khoiThongDongTienChuaLanh", RAG_DATA.khoiThongDongTienChuaLanh),
+      ...chunkSection("khoiThongDongTienDuDay", RAG_DATA.khoiThongDongTienDuDay),
+      ...chunkSection("khoiThongDongTienLuatHapDan", RAG_DATA.khoiThongDongTienLuatHapDan),
+      ...chunkSection("khoiThongDongTienBanHang", RAG_DATA.khoiThongDongTienBanHang),
+      ...chunkSection("khoiThongDongTienNhanQua", RAG_DATA.khoiThongDongTienNhanQua),
       ...chunkSection("thayMong", RAG_DATA.thayMong),
-      ...chunkSection("khoaChuyenSauTongQuan", RAG_DATA.khoaChuyenSauTongQuan),
-      ...chunkSection("khoaChuyenSauDoiTuong", RAG_DATA.khoaChuyenSauDoiTuong),
-      ...chunkSection("khoaChuyenSauLoTrinh", RAG_DATA.khoaChuyenSauLoTrinh),
-      ...chunkSection("khoaChuyenSauKhacBiet", RAG_DATA.khoaChuyenSauKhacBiet),
-      ...chunkSection("khoaChuyenSauQuyenLoi", RAG_DATA.khoaChuyenSauQuyenLoi),
-      ...chunkSection("khoaChuyenSauTuVan", RAG_DATA.khoaChuyenSauTuVan),
     ];
     const seeded = [];
+
+    await deleteLegacyVectors(env);
 
     for (const chunk of chunks) {
       const embedding = await env.AI.run("@cf/baai/bge-m3", { text: [chunk.text] });
@@ -74,3 +86,15 @@ export default {
     return Response.json({ seeded });
   },
 };
+
+async function deleteLegacyVectors(env) {
+  if (typeof env.RAG_INDEX.deleteByIds !== "function") {
+    return;
+  }
+
+  const ids = LEGACY_SOURCE_KEYS.flatMap((key) =>
+    Array.from({ length: 20 }, (_, index) => `rag:${key}:${index}`),
+  );
+
+  await env.RAG_INDEX.deleteByIds(ids);
+}
