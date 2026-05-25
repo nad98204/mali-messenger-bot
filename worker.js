@@ -27,7 +27,7 @@ Chẩn đoán ngắn theo vấn đề:
 
 Khi chẩn đoán: phản chiếu đúng vấn đề khách, nói 1 insight ngắn, rồi dừng hoặc chốt mềm. Đừng hứa chữa khỏi, giàu lên, hết nợ hay đổi đời. Không dùng giọng thách thức.
 
-Khi chốt: Nếu khách đã chia sẻ rõ đau đớn hoặc đã xác nhận bị năng lượng tiền bạc chặn, hỏi: "Em đăng ký khóa Khơi Thông Dòng Tiền rồi chưa?" Nếu khách chưa đăng ký thì gửi link ngay: https://luathapdan.vn/dao-tao/khoi-thong-dong-tien/?utm_source=dang&utm_term=ktdt&utm_content=fpmongcoaching
+Khi chốt: Nếu khách đã chia sẻ rõ đau đớn hoặc đã xác nhận bị năng lượng tiền bạc chặn, hỏi: "Em đăng ký khóa Khơi Thông Dòng Tiền rồi chưa?" Nếu khách chưa đăng ký thì gửi link ngay: https://luathapdan.vn/dao-tao/khoi-thong-dong-tien-thuonghieu
 
 Nếu đã đăng ký hoặc đã học rồi: "Tuyệt vời quá[NEXT]Hẹn gặp lại em/anh/chị ở buổi học tiếp theo nhé" rồi dừng, không hỏi thêm.
 
@@ -232,7 +232,7 @@ function getRuleBasedAnswer(userText, messages = []) {
     const lastAssistantMessage = getLastAssistantMessage(messages);
 
     if (lastAssistantMessage && isRegistrationQuestion(lastAssistantMessage.content)) {
-      return "Thế em kích link sau đăng ký nhé[NEXT]Đây là link nha: https://luathapdan.vn/dao-tao/khoi-thong-dong-tien/?utm_source=dang&utm_term=ktdt&utm_content=fpmongcoaching[NEXT]Kích vào link đăng ký luôn nhé";
+      return "Thế em kích link sau đăng ký nhé[NEXT]Đây là link nha: https://luathapdan.vn/dao-tao/khoi-thong-dong-tien-thuonghieu[NEXT]Kích vào link đăng ký luôn nhé";
     }
   }
 
@@ -253,7 +253,7 @@ function getRuleBasedAnswer(userText, messages = []) {
     normalizedText.includes("dang ky o dau") ||
     normalizedText.includes("muon dang ky")
   ) {
-    return "Thế em kích link sau đăng ký nhé[NEXT]Đây là link nha: https://luathapdan.vn/dao-tao/khoi-thong-dong-tien/?utm_source=dang&utm_term=ktdt&utm_content=fpmongcoaching[NEXT]Kích vào link đăng ký luôn nhé";
+    return "Thế em kích link sau đăng ký nhé[NEXT]Đây là link nha: https://luathapdan.vn/dao-tao/khoi-thong-dong-tien-thuonghieu[NEXT]Kích vào link đăng ký luôn nhé";
   }
 
   if (
@@ -744,7 +744,7 @@ async function runRemarketing(env) {
         const senderId = key.name;
         const message =
           data.status === "interested"
-            ? "Hôm qua bạn có hỏi về khóa học Khơi Thông Dòng Tiền, bạn đăng ký chưa nhỉ? Link đây nếu cần: https://luathapdan.vn/dao-tao/khoi-thong-dong-tien/?utm_source=dang&utm_term=ktdt&utm_content=fpmongcoaching"
+            ? "Hôm qua bạn có hỏi về khóa học Khơi Thông Dòng Tiền, bạn đăng ký chưa nhỉ? Link đây nếu cần: https://luathapdan.vn/dao-tao/khoi-thong-dong-tien-thuonghieu"
             : "Hôm qua mình có nói chuyện, bạn có muốn tìm hiểu thêm về khóa Khơi Thông Dòng Tiền không? Khóa miễn phí đó bạn ơi";
 
         await sendMessengerText(senderId, message, env);
