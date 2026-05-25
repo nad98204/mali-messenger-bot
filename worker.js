@@ -101,7 +101,6 @@ async function handleWebhook(payload, env) {
       }
 
       if (event.postback?.payload === "GET_STARTED" && event.sender?.id) {
-        await handleMessage(event.sender.id, "Xin chào", env);
         continue;
       }
 
@@ -130,6 +129,10 @@ async function handleMessage(senderId, userText, env) {
     let messages = chatState.messages;
     const normalizedText = normalizeVietnameseText(userText);
     const ahachatCourseAnswer = shouldHandleAhachatCourseAnswer(normalizedText, chatState);
+
+    if (isAutomationStartMessage(normalizedText)) {
+      return;
+    }
 
     if (shouldIgnoreAhachatUserMessage(normalizedText, chatState)) {
       await saveChatState(senderId, getAhachatWaitingState(chatState), env);
@@ -228,6 +231,18 @@ function getRuleBasedAnswer(userText, messages = []) {
   const normalizedText = normalizeVietnameseText(userText);
   const greetings = ["chao", "xin chao", "chao thay", "xin chao thay", "hello", "hi"];
 
+  if (isMoneyGratitudeRequest(normalizedText)) {
+    return getMoneyGratitudePracticeAnswer();
+  }
+
+  if (isMoneyGratitudeNotSeen(normalizedText, messages)) {
+    return 'Mình gửi lại bài Cảm Ơn Tiền nhé: "Cảm ơn tiền đã đến với mình"[NEXT]Bạn đọc 21 lần/ngày trong 21 ngày liên tiếp nhé';
+  }
+
+  if (isMoneyGratitudeSmallTalk(normalizedText, messages)) {
+    return "Mình hiểu ý bạn[NEXT]Bạn cứ đọc bài Cảm Ơn Tiền đều 21 ngày nhé";
+  }
+
   if (greetings.includes(normalizedText)) {
     return "Mình đây, đang cần mình hỗ trợ gì về tài chính không?";
   }
@@ -315,6 +330,61 @@ function getRuleBasedAnswer(userText, messages = []) {
   }
 
   return null;
+}
+
+function getMoneyGratitudePracticeAnswer() {
+  return 'Bài Cảm Ơn Tiền: "Cảm ơn tiền đã đến với mình"[NEXT]Bạn đọc 21 lần/ngày trong 21 ngày liên tiếp nhé';
+}
+
+function isMoneyGratitudeRequest(normalizedText) {
+  return (
+    normalizedText.includes("tien") &&
+    (normalizedText.includes("bai biet on") ||
+      normalizedText.includes("bai cam on") ||
+      normalizedText.includes("biet on tien") ||
+      normalizedText.includes("cam on tien") ||
+      normalizedText.includes("xin bai"))
+  );
+}
+
+function isMoneyGratitudeNotSeen(normalizedText, messages) {
+  if (
+    !(
+      normalizedText.includes("khong thay") ||
+      normalizedText.includes("ko thay") ||
+      normalizedText.includes("chua thay") ||
+      normalizedText.includes("khong co") ||
+      normalizedText.includes("ko co")
+    )
+  ) {
+    return false;
+  }
+
+  return messages.some(
+    (message) =>
+      typeof message.content === "string" &&
+      isMoneyGratitudeRequest(normalizeVietnameseText(message.content)),
+  );
+}
+
+function isMoneyGratitudeSmallTalk(normalizedText, messages) {
+  if (
+    !(
+      normalizedText.includes("tien khong choi") ||
+      normalizedText.includes("tien ko choi") ||
+      normalizedText.includes("tien chua choi") ||
+      normalizedText.includes("tien tranh")
+    )
+  ) {
+    return false;
+  }
+
+  return messages.some(
+    (message) =>
+      typeof message.content === "string" &&
+      (isMoneyGratitudeRequest(normalizeVietnameseText(message.content)) ||
+        normalizeVietnameseText(message.content).includes("bai cam on tien")),
+  );
 }
 
 function getLastAssistantMessage(messages) {
@@ -418,6 +488,10 @@ function isAhachatConsentReply(normalizedText) {
     normalizedText === "minh dong y" ||
     normalizedText === "em dong y"
   );
+}
+
+function isAutomationStartMessage(normalizedText) {
+  return normalizedText === "bat dau" || normalizedText === "get started" || normalizedText === "start";
 }
 
 function isCourseParticipationAnswer(normalizedText) {
