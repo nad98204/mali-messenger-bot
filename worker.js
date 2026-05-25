@@ -36,7 +36,7 @@ Chẩn đoán ngắn theo vấn đề:
 
 Khi chẩn đoán: phản chiếu đúng vấn đề khách, nói 1 insight ngắn, rồi dừng hoặc chốt mềm. Đừng hứa chữa khỏi, giàu lên, hết nợ hay đổi đời. Không dùng giọng thách thức.
 
-Khi chốt: Nếu khách đã chia sẻ rõ đau đớn hoặc đã xác nhận bị năng lượng tiền bạc chặn, hỏi: "Bạn đăng ký khóa Khơi Thông Dòng Tiền rồi chưa?" Nếu khách chưa đăng ký thì gửi link ngay: https://luathapdan.vn/dao-tao/khoi-thong-dong-tien-thuonghieu
+Khi chốt: Chỉ hỏi "Bạn đăng ký khóa Khơi Thông Dòng Tiền rồi chưa?" sau khi đã phản hồi vấn đề của khách ít nhất 2 nhịp hoặc khách hỏi cách tham gia/link. Nếu khách vừa chia sẻ nợ nặng, phá sản, mất việc, bế tắc hoặc áp lực gia đình, tuyệt đối chưa chốt ngay; hãy đồng cảm, phản chiếu, gỡ 1 góc nhìn và có thể gợi ý nhắn trợ lý nếu cần tư vấn sâu.
 
 Nếu đã đăng ký hoặc đã học rồi: "Ừm tốt rồi em[NEXT]Em để ý thông báo trong nhóm để vào buổi học đúng giờ nhé" rồi dừng, không hỏi thêm.
 
@@ -53,7 +53,8 @@ const CLAUDE_RUNTIME_GUARDRAILS = `Bo nho va trang thai:
 - Khong tu tra loi thay khach bang "Tuyet voi qua" hoac hen gap neu khach chua xac nhan da dang ky/da hoc.
 - Luon tra loi dung y khach vua noi truoc; neu khach noi ve nhom kin, lich live, buoi hoc, ngay mai, trua/toi thi xac nhan lich va nhac vao hoc, khong keo ve cau hoi tai chinh ngay.
 - Neu khach da vao nhom hoac biet lich hoc, dung hoi "co van de gi voi tien bac khong"; hay noi tu nhien nhu nguoi truc inbox.
-- Neu khach noi "da/da em/vang em" roi hoi them ve hoc phi, dat coc, khoa tai chinh, lich hoc, hoac tu van thi phai tra loi cau hoi do; khong duoc xem la da dang ky xong.`;
+- Neu khach noi "da/da em/vang em" roi hoi them ve hoc phi, dat coc, khoa tai chinh, lich hoc, hoac tu van thi phai tra loi cau hoi do; khong duoc xem la da dang ky xong.
+- Khong hoi dang ky khoa ngay sau tin dau tien khach vua ke no nang, pha san, be tac. Toi thieu can them 1-2 nhip dong cam/tu van truoc.`;
 
 export default {
   async fetch(request, env, ctx) {
@@ -357,6 +358,10 @@ function getRuleBasedAnswer(userText, messages = []) {
     return "Đúng rồi em, mai có buổi chia sẻ buổi trưa đó[NEXT]Em để ý thông báo trong nhóm để vào đúng giờ nhé";
   }
 
+  if (isHeavyDebtDisclosure(normalizedText)) {
+    return "Mình nghe em nói vậy thấy áp lực này rất nặng, nhất là khi nợ nhiều phía cùng dồn lại[NEXT]Lúc này mình đừng vội quyết gì lớn, trước hết cần bình tâm để nhìn lại từng khoản và hướng đi mới";
+  }
+
   if (isAdvancedCourseConsultRequest(normalizedText)) {
     return "Bạn để lại sdt nhé[NEXT]Bên mình sẽ tư vấn kỹ hơn cho bạn";
   }
@@ -447,8 +452,12 @@ function getRuleBasedAnswer(userText, messages = []) {
     return "Bạn nhắn trợ lý mình nha, sdt 0355 067 656";
   }
 
-  const exactAcknowledgements = ["vang", "da"];
-  const flexibleAcknowledgements = ["ok", "cam on", "thank", "thanks"];
+  if (isThanksResponse(normalizedText)) {
+    return getThanksReply(messages);
+  }
+
+  const exactAcknowledgements = ["vang", "da", "ok"];
+  const flexibleAcknowledgements = ["oke", "okie"];
 
   if (
     exactAcknowledgements.includes(normalizedText) ||
@@ -457,7 +466,7 @@ function getRuleBasedAnswer(userText, messages = []) {
         normalizedText === acknowledgement || normalizedText.startsWith(`${acknowledgement} `),
     )
   ) {
-    return "Mình nhận được rồi nhé";
+    return "Ừm em nhé";
   }
 
   return null;
@@ -626,6 +635,30 @@ function isDebtFamilyPressureStatement(normalizedText) {
   return hasDebtPressure && hasFamilyIssue;
 }
 
+function isHeavyDebtDisclosure(normalizedText) {
+  const hasDebt =
+    /\bno\b/.test(normalizedText) ||
+    normalizedText.includes("no ngan hang") ||
+    normalizedText.includes("no lai ngoai") ||
+    normalizedText.includes("no anh em") ||
+    normalizedText.includes("no nan");
+
+  const hasLargeAmount =
+    /\b\d+\s*(tr|trieu|ty)\b/.test(normalizedText) ||
+    normalizedText.includes("tram trieu") ||
+    normalizedText.includes("nhieu no");
+
+  const hasDistress =
+    normalizedText.includes("be tac") ||
+    normalizedText.includes("cong ty") ||
+    normalizedText.includes("pha san") ||
+    normalizedText.includes("khong tra duoc") ||
+    normalizedText.includes("tim huong di moi") ||
+    normalizedText.includes("cong viec moi");
+
+  return hasDebt && (hasLargeAmount || hasDistress);
+}
+
 function isGenericProblemStatement(normalizedText) {
   const hasGenericProblem =
     normalizedText.includes("van de") ||
@@ -660,6 +693,59 @@ function isGenericProblemStatement(normalizedText) {
 
 function getGiftScriptKeywordAnswer() {
   return 'Bạn chat chữ "nhận" nhé[NEXT]Bên chatbot sẽ gửi kịch bản phần quà thôi miên cho bạn';
+}
+
+function isThanksResponse(normalizedText) {
+  return (
+    normalizedText === "cam on" ||
+    normalizedText === "cam on a" ||
+    normalizedText === "cam on nhe" ||
+    normalizedText === "cam on thay" ||
+    normalizedText === "cam on thay nhe" ||
+    normalizedText.startsWith("cam on ") ||
+    normalizedText === "thank" ||
+    normalizedText === "thanks" ||
+    normalizedText.startsWith("thank ")
+  );
+}
+
+function getThanksReply(messages = []) {
+  if (hasRecentAssistantMessage(messages, isMeditationFileAssistantMessage)) {
+    return "Không có gì em nhé[NEXT]Em cứ thực hành đều 7 ngày, có gì vướng thì nhắn lại mình";
+  }
+
+  if (hasRecentAssistantMessage(messages, isRegistrationLinkAssistantMessage)) {
+    return "Không có gì em nhé[NEXT]Em bấm link đăng ký, có gì chưa rõ cứ nhắn lại mình";
+  }
+
+  return "Không có gì em nhé";
+}
+
+function hasRecentAssistantMessage(messages, predicate) {
+  return messages
+    .slice(-6)
+    .some(
+      (message) =>
+        message.role === "assistant" &&
+        typeof message.content === "string" &&
+        predicate(normalizeVietnameseText(message.content)),
+    );
+}
+
+function isMeditationFileAssistantMessage(normalizedText) {
+  return (
+    normalizedText.includes("file thuc hanh thien") ||
+    normalizedText.includes("thien hut tien") ||
+    normalizedText.includes("youtu.be/hl_cwts2ay8") ||
+    normalizedText.includes("lam vao thoi diem buoi sang")
+  );
+}
+
+function isRegistrationLinkAssistantMessage(normalizedText) {
+  return (
+    normalizedText.includes("link dang ky") ||
+    normalizedText.includes("luathapdan.vn/dao-tao/khoi-thong-dong-tien")
+  );
 }
 
 function isGiftScriptRequest(normalizedText) {
@@ -1267,6 +1353,10 @@ function shouldMoveToClose(profile, normalizedText, questionStreak) {
     return false;
   }
 
+  if (isHeavyDebtDisclosure(normalizedText)) {
+    return false;
+  }
+
   if (profile.registered === false) {
     return true;
   }
@@ -1276,10 +1366,10 @@ function shouldMoveToClose(profile, normalizedText, questionStreak) {
   const hasStrongPain = isProblemMessage(normalizedText);
 
   return (
-    hasEnoughContext ||
-    (hasStrongPain && questionStreak >= 1) ||
+    (hasEnoughContext && questionStreak >= 2) ||
+    (hasStrongPain && questionStreak >= 2) ||
     (isAffirmativeResponse(normalizedText) && Boolean(profile.problemType || profile.problem)) ||
-    (questionStreak >= 2 && Boolean(profile.problemType || profile.problem))
+    (questionStreak >= 3 && Boolean(profile.problemType || profile.problem))
   );
 }
 
