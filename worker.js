@@ -2,9 +2,11 @@ const CLAUDE_MODEL = "claude-sonnet-4-20250514";
 const CLAUDE_SUMMARY_MODEL = "claude-3-5-haiku-20241022";
 const MAX_HISTORY_MESSAGES = 6;
 const SUMMARY_TRIGGER_MESSAGES = 6;
+const AHACHAT_COURSE_QUESTION =
+  "À bên mình có tổ chức khoá KHƠI THÔNG DÒNG TIỀN hoàn toàn Miễn Phí giúp mọi người kết nối sâu với năng lượng tiền bạc. Bạn đã tham gia rồi chứ";
 const CLAUDE_SYSTEM_PROMPT = `Bạn là Thầy Mong, đang nhắn trực tiếp với học viên tiềm năng qua Messenger. Không nói mình là bot, trợ lý hay AI.
 
-Xưng hô: Nếu khách xưng "tôi" hoặc "mình" thì xưng "mình" và gọi khách là "anh/chị" kèm tên nếu biết. Nếu khách xưng "em" thì xưng "mình" và gọi khách là "em". Nếu khách chưa xưng rõ thì tránh gọi danh xưng, chỉ nói "mình". Không bao giờ dùng "tôi" hay "tớ". Không tự xưng "e/em".
+Xưng hô: Luôn xưng "mình". Mặc định gọi khách là "bạn"; nếu khách tự xưng "em" thì có thể gọi khách là "em". Nếu khách chưa xưng rõ thì tránh gọi danh xưng khi không cần. Không bao giờ dùng "tôi" hay "tớ". Không tự xưng "e/em". Tuyệt đối không dùng danh xưng theo giới tính để gọi khách.
 
 Phong cách: Nhắn ít, điềm, tự nhiên, có chiều sâu. Mỗi lượt tối đa 2 tin, mỗi tin tối đa 14 từ. Dùng [NEXT] chỉ khi thật cần tách 2 tin. Không emoji, không bullet, không in đậm. Không hỏi nếu chưa thật sự cần.
 
@@ -27,11 +29,11 @@ Chẩn đoán ngắn theo vấn đề:
 
 Khi chẩn đoán: phản chiếu đúng vấn đề khách, nói 1 insight ngắn, rồi dừng hoặc chốt mềm. Đừng hứa chữa khỏi, giàu lên, hết nợ hay đổi đời. Không dùng giọng thách thức.
 
-Khi chốt: Nếu khách đã chia sẻ rõ đau đớn hoặc đã xác nhận bị năng lượng tiền bạc chặn, hỏi: "Em đăng ký khóa Khơi Thông Dòng Tiền rồi chưa?" Nếu khách chưa đăng ký thì gửi link ngay: https://luathapdan.vn/dao-tao/khoi-thong-dong-tien-thuonghieu
+Khi chốt: Nếu khách đã chia sẻ rõ đau đớn hoặc đã xác nhận bị năng lượng tiền bạc chặn, hỏi: "Bạn đăng ký khóa Khơi Thông Dòng Tiền rồi chưa?" Nếu khách chưa đăng ký thì gửi link ngay: https://luathapdan.vn/dao-tao/khoi-thong-dong-tien-thuonghieu
 
-Nếu đã đăng ký hoặc đã học rồi: "Tuyệt vời quá[NEXT]Hẹn gặp lại em/anh/chị ở buổi học tiếp theo nhé" rồi dừng, không hỏi thêm.
+Nếu đã đăng ký hoặc đã học rồi: "Tuyệt vời quá[NEXT]Hẹn gặp lại bạn ở buổi học tiếp theo nhé" rồi dừng, không hỏi thêm.
 
-Cần tư vấn sâu hơn: "Em nhắn trợ lý mình nha, sdt 0355 067 656"
+Cần tư vấn sâu hơn: "Bạn nhắn trợ lý mình nha, sdt 0355 067 656"
 
 Không được bịa đặt thông tin về Thầy Mong. Chỉ dùng đúng 2 ý khi cần kể chuyện: hơn chục năm trước thầy bị lừa mất hết tiền, vướng nợ, thất nghiệp; thầy thay đổi nhờ hiểu đúng Luật Hấp Dẫn và Nhân Quả, giờ tài chính vững vàng.`;
 
@@ -89,45 +91,63 @@ async function handleWebhook(payload, env) {
     return;
   }
 
-  const tasks = [];
-
   for (const entry of payload.entry) {
     const messagingEvents = Array.isArray(entry.messaging) ? entry.messaging : [];
 
     for (const event of messagingEvents) {
-      if (event.postback?.payload === "GET_STARTED" && event.sender?.id) {
-        tasks.push(handleMessage(event.sender.id, "Xin chào", env));
+      if (event.message?.is_echo) {
+        await handlePageEcho(event, env);
         continue;
       }
 
-      if (event.message?.is_echo || !event.sender?.id) {
+      if (event.postback?.payload === "GET_STARTED" && event.sender?.id) {
+        await handleMessage(event.sender.id, "Xin chào", env);
+        continue;
+      }
+
+      if (!event.sender?.id) {
         continue;
       }
 
       if (event.message?.text) {
-        tasks.push(handleMessage(event.sender.id, event.message.text, env));
+        await handleMessage(event.sender.id, event.message.text, env);
       } else if (event.optin) {
-        tasks.push(handleMessage(event.sender.id, "xin chào", env));
+        await handleMessage(event.sender.id, "xin chào", env);
       } else if (event.postback) {
-        tasks.push(
-          handleMessage(
-            event.sender.id,
-            event.postback.title || event.postback.payload,
-            env,
-          ),
+        await handleMessage(
+          event.sender.id,
+          event.postback.title || event.postback.payload,
+          env,
         );
       }
     }
   }
-
-  await Promise.allSettled(tasks);
 }
 
 async function handleMessage(senderId, userText, env) {
   try {
     const chatState = await getChatState(senderId, env);
     let messages = chatState.messages;
-    const isFirstMessage = messages.length === 0;
+    const normalizedText = normalizeVietnameseText(userText);
+    const ahachatCourseAnswer = shouldHandleAhachatCourseAnswer(normalizedText, chatState);
+
+    if (shouldIgnoreAhachatUserMessage(normalizedText, chatState)) {
+      await saveChatState(senderId, getAhachatWaitingState(chatState), env);
+      return;
+    }
+
+    if (
+      ahachatCourseAnswer &&
+      !isRegistrationQuestion(getLastAssistantMessage(messages)?.content || "")
+    ) {
+      messages.push({
+        role: "assistant",
+        content: AHACHAT_COURSE_QUESTION,
+      });
+    }
+
+    const isFirstMessage =
+      !chatState.firstMessage && !messages.some((message) => message.role === "user");
 
     if (isFirstMessage) {
       await saveToSheet(senderId, userText);
@@ -158,11 +178,11 @@ async function handleMessage(senderId, userText, env) {
         status: getUpdatedStatus(userText, chatState.status),
         firstMessage: chatState.firstMessage || userText,
         customerProfile,
+        ahachatGate: ahachatCourseAnswer ? null : chatState.ahachatGate,
+        ahachatGateAt: ahachatCourseAnswer ? null : chatState.ahachatGateAt,
       };
 
-      await env.CHAT_HISTORY.put(senderId, JSON.stringify(updatedState), {
-        expirationTtl: 2592000,
-      });
+      await saveChatState(senderId, updatedState, env);
 
       await sendMessengerParts(senderId, ruleBasedAnswer, env);
       return;
@@ -187,18 +207,18 @@ async function handleMessage(senderId, userText, env) {
       status: getUpdatedStatus(userText, chatState.status),
       firstMessage: chatState.firstMessage || userText,
       customerProfile,
+      ahachatGate: ahachatCourseAnswer ? null : chatState.ahachatGate,
+      ahachatGateAt: ahachatCourseAnswer ? null : chatState.ahachatGateAt,
     };
 
-    await env.CHAT_HISTORY.put(senderId, JSON.stringify(updatedState), {
-      expirationTtl: 2592000,
-    });
+    await saveChatState(senderId, updatedState, env);
 
     await sendMessengerParts(senderId, answer, env);
   } catch (error) {
     console.error("Failed to reply message", error);
     await sendMessengerText(
       senderId,
-      "Hiện tại thầy chưa phản hồi được ngay. Cô/chú/bạn vui lòng nhắn lại sau ít phút nhé.",
+      "Hiện tại thầy chưa phản hồi được ngay. Bạn vui lòng nhắn lại sau ít phút nhé.",
       env,
     );
   }
@@ -228,11 +248,25 @@ function getRuleBasedAnswer(userText, messages = []) {
     return "Đây là khóa Khơi Thông Dòng Tiền miễn phí 4 buổi[NEXT]Khóa giúp mình nhìn lại niềm tin, cảm xúc và năng lượng đang làm tiền bị tắc";
   }
 
-  if (["chua", "em chua", "minh chua", "toi chua"].includes(normalizedText)) {
+  if (
+    ["chua", "em chua", "minh chua", "toi chua", "chua tham gia"].includes(normalizedText)
+  ) {
     const lastAssistantMessage = getLastAssistantMessage(messages);
 
     if (lastAssistantMessage && isRegistrationQuestion(lastAssistantMessage.content)) {
-      return "Thế em kích link sau đăng ký nhé[NEXT]Đây là link nha: https://luathapdan.vn/dao-tao/khoi-thong-dong-tien-thuonghieu[NEXT]Kích vào link đăng ký luôn nhé";
+      return "Thế bạn kích link sau đăng ký nhé[NEXT]Đây là link nha: https://luathapdan.vn/dao-tao/khoi-thong-dong-tien-thuonghieu[NEXT]Kích vào link đăng ký luôn nhé";
+    }
+  }
+
+  if (
+    ["roi", "roi a", "co roi", "da roi", "em roi", "minh roi", "toi roi"].includes(
+      normalizedText,
+    )
+  ) {
+    const lastAssistantMessage = getLastAssistantMessage(messages);
+
+    if (lastAssistantMessage && isRegistrationQuestion(lastAssistantMessage.content)) {
+      return "Tuyệt vời quá[NEXT]Hẹn gặp lại bạn ở buổi học tiếp theo nhé";
     }
   }
 
@@ -240,9 +274,11 @@ function getRuleBasedAnswer(userText, messages = []) {
     normalizedText.includes("da dang ky") ||
     normalizedText.includes("dang ky roi") ||
     normalizedText.includes("hoc roi") ||
-    normalizedText.includes("da hoc")
+    normalizedText.includes("da hoc") ||
+    normalizedText.includes("tham gia roi") ||
+    normalizedText.includes("da tham gia")
   ) {
-    return "Tuyệt vời quá[NEXT]Hẹn gặp lại em/anh/chị ở buổi học tiếp theo nhé";
+    return "Tuyệt vời quá[NEXT]Hẹn gặp lại bạn ở buổi học tiếp theo nhé";
   }
 
   if (
@@ -253,7 +289,7 @@ function getRuleBasedAnswer(userText, messages = []) {
     normalizedText.includes("dang ky o dau") ||
     normalizedText.includes("muon dang ky")
   ) {
-    return "Thế em kích link sau đăng ký nhé[NEXT]Đây là link nha: https://luathapdan.vn/dao-tao/khoi-thong-dong-tien-thuonghieu[NEXT]Kích vào link đăng ký luôn nhé";
+    return "Thế bạn kích link sau đăng ký nhé[NEXT]Đây là link nha: https://luathapdan.vn/dao-tao/khoi-thong-dong-tien-thuonghieu[NEXT]Kích vào link đăng ký luôn nhé";
   }
 
   if (
@@ -262,7 +298,7 @@ function getRuleBasedAnswer(userText, messages = []) {
     normalizedText.includes("tro ly") ||
     normalizedText.includes("tu van sau")
   ) {
-    return "Em nhắn trợ lý mình nha, sdt 0355 067 656";
+    return "Bạn nhắn trợ lý mình nha, sdt 0355 067 656";
   }
 
   const exactAcknowledgements = ["vang", "da"];
@@ -295,9 +331,138 @@ function isRegistrationQuestion(text) {
   const normalizedText = normalizeVietnameseText(text);
 
   return (
-    normalizedText.includes("dang ky") &&
     normalizedText.includes("khoi thong dong tien") &&
-    normalizedText.includes("chua")
+    (normalizedText.includes("dang ky") || normalizedText.includes("tham gia")) &&
+    (normalizedText.includes("chua") ||
+      normalizedText.includes("roi chu") ||
+      normalizedText.includes("roi khong"))
+  );
+}
+
+async function handlePageEcho(event, env) {
+  const senderId = event.recipient?.id;
+  const text = event.message?.text;
+
+  if (!senderId || typeof text !== "string") {
+    return;
+  }
+
+  const normalizedText = normalizeVietnameseText(text);
+
+  if (!isAhachatFlowMessage(normalizedText)) {
+    return;
+  }
+
+  const chatState = await getChatState(senderId, env);
+  const messages = chatState.messages;
+  const isCourseQuestion = isAhachatCourseQuestion(normalizedText);
+
+  if (
+    isCourseQuestion &&
+    !isRegistrationQuestion(getLastAssistantMessage(messages)?.content || "")
+  ) {
+    messages.push({
+      role: "assistant",
+      content: text,
+    });
+  }
+
+  await saveChatState(
+    senderId,
+    {
+      ...chatState,
+      messages: messages.slice(-MAX_HISTORY_MESSAGES),
+      lastSeen: chatState.lastSeen || new Date().toISOString(),
+      status: isCourseQuestion ? "interested" : chatState.status,
+      ahachatGate: isCourseQuestion ? "ready_for_course_answer" : "waiting_for_course_question",
+      ahachatGateAt: new Date().toISOString(),
+    },
+    env,
+  );
+}
+
+function shouldIgnoreAhachatUserMessage(normalizedText, chatState) {
+  if (isAhachatConsentReply(normalizedText)) {
+    return true;
+  }
+
+  return (
+    chatState.ahachatGate === "waiting_for_course_question" &&
+    !shouldHandleAhachatCourseAnswer(normalizedText, chatState)
+  );
+}
+
+function shouldHandleAhachatCourseAnswer(normalizedText, chatState) {
+  if (
+    chatState.ahachatGate !== "ready_for_course_answer" &&
+    chatState.ahachatGate !== "waiting_for_course_question"
+  ) {
+    return false;
+  }
+
+  return isCourseParticipationAnswer(normalizedText);
+}
+
+function getAhachatWaitingState(chatState) {
+  return {
+    ...chatState,
+    ahachatGate: "waiting_for_course_question",
+    ahachatGateAt: new Date().toISOString(),
+  };
+}
+
+function isAhachatConsentReply(normalizedText) {
+  return (
+    normalizedText === "dong y" ||
+    normalizedText === "toi dong y" ||
+    normalizedText === "minh dong y" ||
+    normalizedText === "em dong y"
+  );
+}
+
+function isCourseParticipationAnswer(normalizedText) {
+  const exactAnswers = [
+    "chua",
+    "em chua",
+    "minh chua",
+    "toi chua",
+    "chua tham gia",
+    "roi",
+    "roi a",
+    "roi nhe",
+    "co roi",
+    "da roi",
+    "em roi",
+    "minh roi",
+    "toi roi",
+    "tham gia roi",
+    "da tham gia",
+  ];
+
+  return (
+    exactAnswers.includes(normalizedText) ||
+    normalizedText.includes("chua tham gia") ||
+    normalizedText.includes("tham gia roi") ||
+    normalizedText.includes("da tham gia")
+  );
+}
+
+function isAhachatFlowMessage(normalizedText) {
+  return (
+    isAhachatCourseQuestion(normalizedText) ||
+    normalizedText.includes("file thuc hanh thien ket noi voi tien") ||
+    normalizedText.includes("youtu.be/hl_cwts2ay8") ||
+    normalizedText.includes("lam vao thoi diem buoi sang") ||
+    normalizedText.includes("dang gap van de gi voi tai chinh")
+  );
+}
+
+function isAhachatCourseQuestion(normalizedText) {
+  return (
+    normalizedText.includes("khoi thong dong tien") &&
+    normalizedText.includes("mien phi") &&
+    normalizedText.includes("da tham gia") &&
+    normalizedText.includes("roi chu")
   );
 }
 
@@ -310,12 +475,15 @@ function updateCustomerProfile(userText, currentProfile = {}, messages = []) {
   if (
     normalizedText.includes("da dang ky") ||
     normalizedText.includes("dang ky roi") ||
-    normalizedText.includes("xong roi")
+    normalizedText.includes("xong roi") ||
+    normalizedText.includes("tham gia roi") ||
+    normalizedText.includes("da tham gia")
   ) {
     profile.registered = true;
     profile.nextStep = "Hẹn khách ở buổi học tiếp theo";
   } else if (
     normalizedText.includes("chua dang ky") ||
+    normalizedText.includes("chua tham gia") ||
     (["chua", "em chua", "minh chua", "toi chua"].includes(normalizedText) &&
       lastAssistantMessage &&
       isRegistrationQuestion(lastAssistantMessage.content))
@@ -571,7 +739,9 @@ function getUpdatedStatus(userText, currentStatus) {
     normalizedText.includes("dang ky roi") ||
     normalizedText.includes("hoc roi") ||
     normalizedText.includes("da hoc") ||
-    normalizedText.includes("xong roi")
+    normalizedText.includes("xong roi") ||
+    normalizedText.includes("tham gia roi") ||
+    normalizedText.includes("da tham gia")
   ) {
     return "registered";
   }
@@ -628,6 +798,8 @@ async function getChatState(senderId, env) {
       status: "new",
       firstMessage: "",
       customerProfile: {},
+      ahachatGate: null,
+      ahachatGateAt: null,
     };
   }
 
@@ -641,6 +813,8 @@ async function getChatState(senderId, env) {
         status: "new",
         firstMessage: getFirstUserMessage(data),
         customerProfile: {},
+        ahachatGate: null,
+        ahachatGateAt: null,
       };
     }
 
@@ -654,6 +828,8 @@ async function getChatState(senderId, env) {
             ? data.firstMessage
             : getFirstUserMessage(data.messages),
         customerProfile: sanitizeCustomerProfile(data.customerProfile),
+        ahachatGate: isValidAhachatGate(data.ahachatGate) ? data.ahachatGate : null,
+        ahachatGateAt: typeof data.ahachatGateAt === "string" ? data.ahachatGateAt : null,
       };
     }
 
@@ -663,6 +839,8 @@ async function getChatState(senderId, env) {
       status: "new",
       firstMessage: "",
       customerProfile: {},
+      ahachatGate: null,
+      ahachatGateAt: null,
     };
   } catch (error) {
     console.error("Invalid chat history JSON", error);
@@ -672,8 +850,16 @@ async function getChatState(senderId, env) {
       status: "new",
       firstMessage: "",
       customerProfile: {},
+      ahachatGate: null,
+      ahachatGateAt: null,
     };
   }
+}
+
+async function saveChatState(senderId, state, env) {
+  await env.CHAT_HISTORY.put(senderId, JSON.stringify(state), {
+    expirationTtl: 2592000,
+  });
 }
 
 function sanitizeMessages(messages) {
@@ -709,6 +895,10 @@ function isValidStatus(status) {
     status === "registered" ||
     status === "remarketed"
   );
+}
+
+function isValidAhachatGate(gate) {
+  return gate === "waiting_for_course_question" || gate === "ready_for_course_answer";
 }
 
 async function runRemarketing(env) {
@@ -804,7 +994,7 @@ async function askClaude(messages, env, userText, customerProfile = {}) {
         .trim()
     : "";
 
-  return text || "Thầy đã nhận được tin nhắn và sẽ phản hồi cô/chú/bạn sớm nhé.";
+  return text || "Thầy đã nhận được tin nhắn và sẽ phản hồi bạn sớm nhé.";
 }
 
 function getClaudeMessages(messages, hasRagContext, customerProfile = {}) {
@@ -1051,6 +1241,10 @@ async function sendMessengerParts(recipientId, text, env) {
 
 function sanitizeOutgoingText(text) {
   return text
+    .replace(/anh\s*\/\s*ch\u1ecb/gi, "bạn")
+    .replace(/anh ch\u1ecb/gi, "bạn")
+    .replace(/\banh\b/gi, "bạn")
+    .replace(/\bch\u1ecb\b/gi, "bạn")
     .replace(/\btớ\b/gi, "mình")
     .replace(/\btôi\b/gi, "mình")
     .replace(/\bthầy\b/gi, "mình");
