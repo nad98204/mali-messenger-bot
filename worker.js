@@ -7,7 +7,7 @@ const RAG_RECENT_MESSAGES = 8;
 const AHACHAT_COURSE_QUESTION =
   "À bên mình có tổ chức khoá KHƠI THÔNG DÒNG TIỀN hoàn toàn Miễn Phí giúp mọi người kết nối sâu với năng lượng tiền bạc. Bạn đã tham gia rồi chứ";
 const MEDITATION_FILE_BLOCK =
-  "1. THIỀN HÚT TIỀN VỀ TRONG 7 NGÀY\nhttps://youtu.be/HL_cWTS2Ay8?si=r5iZTaeCLspOxDzX\n\n2. Thiền Thu Hút Mục Tiêu Siêu Tốc\nhttps://www.youtube.com/watch?v=7MFMY9NG3FY&t=16s";
+  "Gửi bạn file thực hành thiền kết nối với tiền nhé!!\n1. THIỀN HÚT TIỀN VỀ TRONG 7 NGÀY\nhttps://youtu.be/HL_cWTS2Ay8?si=r5iZTaeCLspOxDzX\n\n2. Thiền Thu Hút Mục Tiêu Siêu Tốc\nhttps://www.youtube.com/watch?v=7MFMY9NG3FY&t=16s";
 const MEDITATION_FILE_NOTE =
   "Lưu ý: Làm vào thời điểm buổi sáng từ 4h-6h30 trong 1 tuần liên tục để đạt hiệu quả cao nhất";
 const CLAUDE_SYSTEM_PROMPT = `Bạn là Thầy Mong, đang nhắn trực tiếp với học viên tiềm năng qua Messenger. Không nói mình là bot, trợ lý hay AI.
