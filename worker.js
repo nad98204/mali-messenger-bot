@@ -22,6 +22,7 @@ Luật chống hỏi nhiều:
 - Không phản biện khách kiểu "nhiều người cùng hoàn cảnh mà kết quả khác nhau".
 - Không làm khách thấy bị sai, bị dạy đời, bị chất vấn.
 - Khi khách trả lời ngắn, hãy phản chiếu và đưa insight ngắn, không hỏi tiếp ngay.
+- Nếu khách chỉ nói chung chung như "gặp vấn đề", "khó khăn quá", "vấn đề về tiền" mà chưa nói rõ là nợ, thu nhập, chi tiêu, doanh thu, động lực hay cảm xúc, hãy hỏi 1 câu: "Cụ thể bạn đang gặp vấn đề gì vậy?"
 
 Chẩn đoán ngắn theo vấn đề:
 - Nợ/kẹt tiền: nỗi sợ và áp lực làm mình càng co lại, quyết định tiền bạc dễ rối.
@@ -118,6 +119,10 @@ async function handleWebhook(payload, env) {
         continue;
       }
 
+      if (isGiveawayTriggerEvent(event)) {
+        continue;
+      }
+
       if (isAhachatConsentEvent(event)) {
         await markAhachatWaiting(event.sender.id, env);
         continue;
@@ -156,6 +161,19 @@ function isAhachatConsentEvent(event) {
   return texts.some(isAhachatConsentReply);
 }
 
+function isGiveawayTriggerEvent(event) {
+  const texts = [
+    event.message?.text,
+    event.postback?.title,
+    event.postback?.payload,
+    event.referral?.ref,
+  ]
+    .filter((text) => typeof text === "string")
+    .map(normalizeVietnameseText);
+
+  return texts.some(isGiveawayTriggerText);
+}
+
 async function markAhachatWaiting(senderId, env) {
   const chatState = await getChatState(senderId, env);
   await saveChatState(senderId, getAhachatWaitingState(chatState), env);
@@ -167,6 +185,10 @@ async function handleMessage(senderId, userText, env) {
     let messages = chatState.messages;
     const normalizedText = normalizeVietnameseText(userText);
     const ahachatCourseAnswer = shouldHandleAhachatCourseAnswer(normalizedText, chatState);
+
+    if (isGiveawayTriggerText(normalizedText)) {
+      return;
+    }
 
     if (isAutomationStartMessage(normalizedText)) {
       return;
@@ -219,8 +241,9 @@ async function handleMessage(senderId, userText, env) {
         status: getUpdatedStatus(userText, chatState.status),
         firstMessage: chatState.firstMessage || userText,
         customerProfile,
-        ahachatGate: ahachatCourseAnswer ? null : chatState.ahachatGate,
-        ahachatGateAt: ahachatCourseAnswer ? null : chatState.ahachatGateAt,
+        ahachatGate: ahachatCourseAnswer || isHumanFollowupMessage(normalizedText) ? null : chatState.ahachatGate,
+        ahachatGateAt:
+          ahachatCourseAnswer || isHumanFollowupMessage(normalizedText) ? null : chatState.ahachatGateAt,
       };
 
       await saveChatState(senderId, updatedState, env);
@@ -248,8 +271,9 @@ async function handleMessage(senderId, userText, env) {
       status: getUpdatedStatus(userText, chatState.status),
       firstMessage: chatState.firstMessage || userText,
       customerProfile,
-      ahachatGate: ahachatCourseAnswer ? null : chatState.ahachatGate,
-      ahachatGateAt: ahachatCourseAnswer ? null : chatState.ahachatGateAt,
+      ahachatGate: ahachatCourseAnswer || isHumanFollowupMessage(normalizedText) ? null : chatState.ahachatGate,
+      ahachatGateAt:
+        ahachatCourseAnswer || isHumanFollowupMessage(normalizedText) ? null : chatState.ahachatGateAt,
     };
 
     await saveChatState(senderId, updatedState, env);
@@ -291,6 +315,18 @@ function getRuleBasedAnswer(userText, messages = []) {
 
   if (isAdvancedCourseQuestion(normalizedText)) {
     return "Mình khuyên bạn học Khơi Thông Dòng Tiền trước nhé[NEXT]Khóa này giúp mình nhìn rõ điểm tắc với tiền";
+  }
+
+  if (isGenericProblemStatement(normalizedText)) {
+    return "Mình hiểu rồi[NEXT]Cụ thể bạn đang gặp vấn đề gì vậy?";
+  }
+
+  if (isDebtFamilyPressureStatement(normalizedText)) {
+    return "Thế này chắc em áp lực lắm đúng không, khi nợ và chuyện gia đình dồn lại thế này[NEXT]Thế em đã có cách nào xử lý vấn đề trên chưa?";
+  }
+
+  if (isCourseOverviewQuestion(normalizedText)) {
+    return "Bên mình có khóa Khơi Thông Dòng Tiền miễn phí. Khóa giúp mình nhìn rõ điểm tắc với tiền[NEXT]Bạn đang gặp vấn đề gì cần mình hỗ trợ không?";
   }
 
   if (
@@ -420,6 +456,68 @@ function isAdvancedCourseQuestion(normalizedText) {
         normalizedText.includes("tu van") ||
         normalizedText.includes("hoc")))
   );
+}
+
+function isCourseOverviewQuestion(normalizedText) {
+  return (
+    normalizedText.includes("khoa hoc gi") ||
+    normalizedText.includes("co khoa hoc nao") ||
+    normalizedText.includes("ben ban co khoa") ||
+    normalizedText.includes("ben minh co khoa") ||
+    normalizedText.includes("co khoa gi")
+  );
+}
+
+function isDebtFamilyPressureStatement(normalizedText) {
+  const hasDebtPressure =
+    /\bno\b/.test(normalizedText) ||
+    normalizedText.includes("no nan") ||
+    normalizedText.includes("no tien") ||
+    normalizedText.includes("ap luc tai chinh") ||
+    normalizedText.includes("ap luc tien");
+
+  const hasFamilyIssue =
+    normalizedText.includes("gia dinh") ||
+    normalizedText.includes("con cai") ||
+    normalizedText.includes("con om") ||
+    normalizedText.includes("om dau") ||
+    normalizedText.includes("benh") ||
+    normalizedText.includes("chong") ||
+    normalizedText.includes("vo");
+
+  return hasDebtPressure && hasFamilyIssue;
+}
+
+function isGenericProblemStatement(normalizedText) {
+  const hasGenericProblem =
+    normalizedText.includes("van de") ||
+    normalizedText.includes("kho khan") ||
+    normalizedText.includes("gap kho") ||
+    normalizedText.includes("dang ket") ||
+    normalizedText.includes("be tac");
+
+  if (!hasGenericProblem) {
+    return false;
+  }
+
+  const hasSpecificProblem =
+    /\bno\b/.test(normalizedText) ||
+    normalizedText.includes("no tien") ||
+    normalizedText.includes("het tien") ||
+    normalizedText.includes("thieu tien") ||
+    normalizedText.includes("dong tien") ||
+    normalizedText.includes("doanh thu") ||
+    normalizedText.includes("thu nhap") ||
+    normalizedText.includes("it khach") ||
+    normalizedText.includes("ban cham") ||
+    normalizedText.includes("khong ra tien") ||
+    normalizedText.includes("lo lang") ||
+    normalizedText.includes("dong luc") ||
+    normalizedText.includes("chi tieu") ||
+    normalizedText.includes("tieu nhieu") ||
+    normalizedText.includes("khong kiem soat");
+
+  return !hasSpecificProblem;
 }
 
 function getGiftScriptKeywordAnswer() {
@@ -589,6 +687,10 @@ function shouldIgnoreAhachatUserMessage(normalizedText, chatState) {
     return true;
   }
 
+  if (isHumanFollowupMessage(normalizedText)) {
+    return false;
+  }
+
   return (
     chatState.ahachatGate === "waiting_for_course_question" &&
     !shouldHandleAhachatCourseAnswer(normalizedText, chatState)
@@ -614,6 +716,18 @@ function getAhachatWaitingState(chatState) {
   };
 }
 
+function isHumanFollowupMessage(normalizedText) {
+  return (
+    normalizedText === "alo" ||
+    normalizedText.startsWith("alo ") ||
+    normalizedText.includes("nhan minh") ||
+    normalizedText.includes("nhan voi ai") ||
+    normalizedText.includes("ai di") ||
+    normalizedText.includes("ban oi") ||
+    normalizedText.includes("co ai")
+  );
+}
+
 function isAhachatConsentReply(normalizedText) {
   return (
     normalizedText === "dong y" ||
@@ -622,6 +736,29 @@ function isAhachatConsentReply(normalizedText) {
     normalizedText === "em dong y" ||
     normalizedText.includes("dong y nhan file") ||
     normalizedText.includes("nhan file")
+  );
+}
+
+function isGiveawayTriggerText(normalizedText) {
+  const exactTriggers = [
+    "nhan",
+    "nhan qua",
+    "toi nhan",
+    "em nhan",
+    "minh nhan",
+    "cho toi nhan",
+    "cho em nhan",
+    "gui toi",
+    "gui em",
+  ];
+
+  return (
+    exactTriggers.includes(normalizedText) ||
+    normalizedText.includes("comment nhan") ||
+    normalizedText.includes("binh luan nhan") ||
+    normalizedText.includes("nhan qua thoi mien") ||
+    normalizedText.includes("nhan phan qua") ||
+    normalizedText.includes("xin nhan qua")
   );
 }
 
