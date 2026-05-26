@@ -4,6 +4,8 @@ const MAX_HISTORY_MESSAGES = 14;
 const SUMMARY_TRIGGER_MESSAGES = 14;
 const SUMMARY_RECENT_MESSAGES = 6;
 const RAG_RECENT_MESSAGES = 8;
+const DEFAULT_HUMAN_TAKEOVER_TTL_MINUTES = 5;
+const BOT_ECHO_METADATA = "mali_bot_reply";
 const AHACHAT_COURSE_QUESTION =
   "À bên mình có tổ chức khoá KHƠI THÔNG DÒNG TIỀN hoàn toàn Miễn Phí giúp mọi người kết nối sâu với năng lượng tiền bạc. Bạn đã tham gia rồi chứ";
 const MEDITATION_FILE_BLOCK =
@@ -187,12 +189,65 @@ async function markAhachatWaiting(senderId, env) {
   await saveChatState(senderId, getAhachatWaitingState(chatState), env);
 }
 
+async function markHumanTakeover(senderId, env, pageText = "") {
+  const chatState = await getChatState(senderId, env);
+  const messages = chatState.messages;
+
+  if (pageText) {
+    messages.push({
+      role: "assistant",
+      content: pageText,
+    });
+  }
+
+  await saveChatState(
+    senderId,
+    {
+      ...chatState,
+      messages: messages.slice(-MAX_HISTORY_MESSAGES),
+      humanTakeoverUntil: getHumanTakeoverUntil(env),
+    },
+    env,
+  );
+}
+
+async function saveUserMessageDuringHumanTakeover(senderId, userText, chatState, env) {
+  const messages = chatState.messages;
+  const isFirstMessage =
+    !chatState.firstMessage && !messages.some((message) => message.role === "user");
+
+  if (isFirstMessage) {
+    await saveToSheet(senderId, userText);
+  }
+
+  messages.push({
+    role: "user",
+    content: userText,
+  });
+
+  await saveChatState(
+    senderId,
+    {
+      ...chatState,
+      messages: messages.slice(-MAX_HISTORY_MESSAGES),
+      lastSeen: new Date().toISOString(),
+      firstMessage: chatState.firstMessage || userText,
+    },
+    env,
+  );
+}
+
 async function handleMessage(senderId, userText, env) {
   try {
     const chatState = await getChatState(senderId, env);
     let messages = chatState.messages;
     const normalizedText = normalizeVietnameseText(userText);
     const ahachatCourseAnswer = shouldHandleAhachatCourseAnswer(normalizedText, chatState);
+
+    if (isHumanTakeoverActive(chatState)) {
+      await saveUserMessageDuringHumanTakeover(senderId, userText, chatState, env);
+      return;
+    }
 
     if (isGiveawayTriggerText(normalizedText)) {
       return;
@@ -900,13 +955,16 @@ async function handlePageEcho(event, env) {
   const senderId = event.recipient?.id;
   const text = event.message?.text;
 
-  if (!senderId || typeof text !== "string") {
+  if (!senderId) {
     return;
   }
 
-  const normalizedText = normalizeVietnameseText(text);
+  const normalizedText = typeof text === "string" ? normalizeVietnameseText(text) : "";
 
   if (!isAhachatFlowMessage(normalizedText)) {
+    if (!isAppEcho(event)) {
+      await markHumanTakeover(senderId, env, typeof text === "string" ? text : "");
+    }
     return;
   }
 
@@ -1494,6 +1552,7 @@ async function getChatState(senderId, env) {
       customerProfile: {},
       ahachatGate: null,
       ahachatGateAt: null,
+      humanTakeoverUntil: null,
     };
   }
 
@@ -1509,6 +1568,7 @@ async function getChatState(senderId, env) {
         customerProfile: {},
         ahachatGate: null,
         ahachatGateAt: null,
+        humanTakeoverUntil: null,
       };
     }
 
@@ -1524,6 +1584,8 @@ async function getChatState(senderId, env) {
         customerProfile: sanitizeCustomerProfile(data.customerProfile),
         ahachatGate: isValidAhachatGate(data.ahachatGate) ? data.ahachatGate : null,
         ahachatGateAt: typeof data.ahachatGateAt === "string" ? data.ahachatGateAt : null,
+        humanTakeoverUntil:
+          typeof data.humanTakeoverUntil === "string" ? data.humanTakeoverUntil : null,
       };
     }
 
@@ -1535,6 +1597,7 @@ async function getChatState(senderId, env) {
       customerProfile: {},
       ahachatGate: null,
       ahachatGateAt: null,
+      humanTakeoverUntil: null,
     };
   } catch (error) {
     console.error("Invalid chat history JSON", error);
@@ -1546,6 +1609,7 @@ async function getChatState(senderId, env) {
       customerProfile: {},
       ahachatGate: null,
       ahachatGateAt: null,
+      humanTakeoverUntil: null,
     };
   }
 }
@@ -1595,6 +1659,32 @@ function isValidAhachatGate(gate) {
   return gate === "waiting_for_course_question" || gate === "ready_for_course_answer";
 }
 
+function isAppEcho(event) {
+  return Boolean(
+    event.message?.app_id || event.message?.metadata === BOT_ECHO_METADATA,
+  );
+}
+
+function getHumanTakeoverTtlMinutes(env) {
+  const ttlMinutes = Number(env.HUMAN_TAKEOVER_TTL_MINUTES);
+  return Number.isFinite(ttlMinutes) && ttlMinutes > 0
+    ? ttlMinutes
+    : DEFAULT_HUMAN_TAKEOVER_TTL_MINUTES;
+}
+
+function getHumanTakeoverUntil(env, now = new Date()) {
+  return new Date(now.getTime() + getHumanTakeoverTtlMinutes(env) * 60 * 1000).toISOString();
+}
+
+function isHumanTakeoverActive(chatState, now = new Date()) {
+  if (typeof chatState?.humanTakeoverUntil !== "string") {
+    return false;
+  }
+
+  const takeoverUntil = new Date(chatState.humanTakeoverUntil);
+  return !Number.isNaN(takeoverUntil.getTime()) && takeoverUntil > now;
+}
+
 async function runRemarketing(env) {
   let cursor;
   const now = new Date();
@@ -1617,7 +1707,12 @@ async function runRemarketing(env) {
         continue;
       }
 
-      if (!data.lastSeen || !data.status || data.status === "registered") {
+      if (
+        !data.lastSeen ||
+        !data.status ||
+        data.status === "registered" ||
+        isHumanTakeoverActive(data, now)
+      ) {
         continue;
       }
 
@@ -2021,7 +2116,10 @@ async function sendMessengerText(recipientId, text, env) {
       body: JSON.stringify({
         recipient: { id: recipientId },
         messaging_type: "RESPONSE",
-        message: { text: text.slice(0, 2000) },
+        message: {
+          text: text.slice(0, 2000),
+          metadata: BOT_ECHO_METADATA,
+        },
       }),
     },
   );
