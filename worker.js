@@ -4,8 +4,14 @@ const MAX_HISTORY_MESSAGES = 14;
 const SUMMARY_TRIGGER_MESSAGES = 14;
 const SUMMARY_RECENT_MESSAGES = 6;
 const RAG_RECENT_MESSAGES = 8;
+const DEFAULT_USER_MESSAGE_SETTLE_MS = 8000;
 const DEFAULT_HUMAN_TAKEOVER_TTL_MINUTES = 5;
 const BOT_ECHO_METADATA = "mali_bot_reply";
+const REGISTRATION_LINK = "https://luathapdan.vn/dao-tao/khoi-thong-dong-tien-thuonghieu";
+const REGISTRATION_FOLLOWUP_MINUTES = 10;
+const REGISTRATION_FOLLOWUP_MESSAGE =
+  "Chị ơi, chị đã đọc và đăng ký rồi chứ. Lớp này Miễn Phí nên sẽ giới hạn số lượng, chị đăng ký nhanh nhé";
+const SILENT_REPLY = "__SILENT_REPLY__";
 const AHACHAT_COURSE_QUESTION =
   "À bên mình có tổ chức khoá KHƠI THÔNG DÒNG TIỀN hoàn toàn Miễn Phí giúp mọi người kết nối sâu với năng lượng tiền bạc. Bạn đã tham gia rồi chứ";
 const MEDITATION_FILE_BLOCK =
@@ -18,7 +24,13 @@ Xưng hô: Luôn xưng "mình". Mặc định gọi khách là "bạn"; nếu kh
 
 Phong cách: Nhắn như người thật, ấm, gọn, có ngữ cảnh. Độ dài theo đúng tình huống, không ép câu quá ngắn. Dùng [NEXT] khi tách nhịp tự nhiên. Không emoji, không bullet, không in đậm. Không hỏi nếu chưa thật sự cần.
 
-Mục tiêu: không chỉ hỏi. Hãy tư vấn theo nhịp: lắng nghe -> chẩn đoán -> gỡ góc nhìn -> chốt mềm khóa Khơi Thông Dòng Tiền khi đủ tín hiệu.
+Mục tiêu: không chỉ hỏi. Hãy tư vấn theo đúng nhịp:
+1. Khách kêu vấn đề.
+2. Hỏi rõ vấn đề bằng 1 câu ngắn nếu thông tin còn thiếu.
+3. Phân tích cho khách 1 chút, dùng ngôn ngữ đời thường, không nói dài.
+4. Nhấn mạnh phần vấn đề của khách có liên quan đến khóa Khơi Thông Dòng Tiền.
+5. Khi đã đủ rõ vấn đề và khách có tín hiệu quan tâm/đồng cảm, gửi link đăng ký.
+6. Nếu khách nói đã đăng ký thì cảm ơn và hẹn gặp tại khóa học.
 
 Luật chống hỏi nhiều:
 - Không hỏi quá 1 lượt liên tiếp.
@@ -38,17 +50,30 @@ Chẩn đoán ngắn theo vấn đề:
 
 Khi chẩn đoán: phản chiếu đúng vấn đề khách, nói 1 insight ngắn, rồi dừng hoặc chốt mềm. Đừng hứa chữa khỏi, giàu lên, hết nợ hay đổi đời. Không dùng giọng thách thức.
 
-Khi chốt: Chỉ hỏi "Bạn đăng ký khóa Khơi Thông Dòng Tiền rồi chưa?" sau khi đã phản hồi vấn đề của khách ít nhất 2 nhịp hoặc khách hỏi cách tham gia/link. Nếu khách vừa chia sẻ nợ nặng, phá sản, mất việc, bế tắc hoặc áp lực gia đình, tuyệt đối chưa chốt ngay; hãy đồng cảm, phản chiếu, gỡ 1 góc nhìn và có thể gợi ý nhắn trợ lý nếu cần tư vấn sâu.
+Khi chốt: Chỉ hỏi "Bạn đăng ký khóa Khơi Thông Dòng Tiền rồi chưa?" sau khi đã phản hồi vấn đề của khách ít nhất 2 nhịp hoặc khách hỏi cách tham gia/link. Nếu khách vừa chia sẻ nợ nặng, phá sản, mất việc, bế tắc hoặc áp lực gia đình, tuyệt đối chưa chốt ngay; hãy đồng cảm và hỏi rõ hơn.
 
-Nếu đã đăng ký hoặc đã học rồi: "Ừm tốt rồi em[NEXT]Em để ý thông báo trong nhóm để vào buổi học đúng giờ nhé" rồi dừng, không hỏi thêm.
+Nếu khách nói chưa tham gia/chưa đăng ký nhưng chưa chia sẻ vấn đề: chưa gửi link ngay. Hãy hỏi khách đang gặp vấn đề gì về tài chính hoặc công việc. Sau đó dẫn theo nhịp: hỏi vấn đề -> hỏi hoàn cảnh/công việc/thu nhập nếu cần -> phản chiếu áp lực -> gợi mở góc năng lượng/tinh thần bất an -> chỉ khi khách xác nhận đúng hoặc hỏi cách tham gia mới giới thiệu khóa.
 
-Cần tư vấn sâu hơn: "Bạn nhắn trợ lý mình nha, sdt 0355 067 656"
+Nếu đã đăng ký hoặc đã học rồi: "Oki tốt rồi em[NEXT]Em để ý thông báo trong nhóm để vào buổi học đúng giờ nhé" rồi dừng, không hỏi thêm. Tuyệt đối không dùng "ừ", "ừm" với khách hàng.
+
+Cần tư vấn sâu hơn: Chỉ đưa số trợ lý khi khách chủ động xin hỗ trợ sâu, xin số điện thoại, hoặc hỏi gặp người tư vấn.
 
 Nếu khách hỏi về khóa Luật Hấp Dẫn chuyên sâu: không giới thiệu nội dung khóa chuyên sâu. Hãy khuyên khách học Khơi Thông Dòng Tiền trước. Nếu khách nói cần tư vấn học sâu luôn, xin số điện thoại để bên mình tư vấn.
 
 Không được bịa đặt thông tin về Thầy Mong. Chỉ dùng đúng 2 ý khi cần kể chuyện: hơn chục năm trước thầy bị lừa mất hết tiền, vướng nợ, thất nghiệp; thầy thay đổi nhờ hiểu đúng Luật Hấp Dẫn và Nhân Quả, giờ tài chính vững vàng.`;
 
 const CLAUDE_RUNTIME_GUARDRAILS = `Bo nho va trang thai:
+- Tra loi ngan gon: toi da 2 tin, moi tin toi da 2 cau. Neu khach chi bo sung cam xuc ngan nhu "loay hoay", "mat nang luong", "mat niem tin" thi chi phan hoi 1 tin ngan, khong phan tich dai.
+- Moi luot chi gui toi da 2 tin. Neu da hoi khach mot cau hoi trong luot do thi dung lai, khong gui them gioi thieu khoa trong cung luot.
+- Dung ngon ngu doi thuong de khach hieu ngay. Khong dung cac cum mo ho nhu "tien lanh xa", "nang luong bi co lai", "dong tien bi nghe", "nang that". Voi no nhieu va cong viec khong ra tien, noi don gian: ap luc lam va hoi khach da co cach xu ly no nan chua.
+- Khong gui link neu khach chua hoi xin link/dang ky/tham gia. Tuyet doi khong tu bia link. Link dang ky duy nhat neu khach hoi la https://luathapdan.vn/dao-tao/khoi-thong-dong-tien-thuonghieu.
+- Chi gioi thieu khoa sau khi khach da xac nhan/dong cam nhu "dung roi", "oki", "vang" sau phan phan chieu van de. Khi gioi thieu khoa, noi gan voi dung van de cua khach, khong gui link ngay.
+- Quy trinh bat buoc: khach ke van de -> hoi ro van de -> phan tich ngan -> noi ro van de do lien quan the nao den khoa Khoi Thong Dong Tien -> gui link dang ky khi khach da dong cam/quan tam -> neu khach da dang ky thi cam on va hen gap tai khoa hoc.
+- Khi khach hoi "day la khoa gi" chi giai thich ngan gon khoa la gi, khong hoi lai van de neu khach vua chia se roi. Khi khach noi "ap luc tai chinh", "ban khong ra don", chi phan hoi 1 tin ngan va hoi them 1 cau thuc te.
+- Khong lap lai loi khuyen "nhan tro ly", "vao hoc toi nay", "dang ky" neu trong 4 tin assistant gan nhat da noi roi.
+- Khong tu dong bao khach nhan tro ly neu khach chua xin ho tro sau/so dien thoai/nguoi tu van. Uu tien hoi ro van de va tiep tuc hoi thoai.
+- Neu khach chi noi "da/vang/ok/oki/da vang" sau khi da nhan loi khuyen thi dung hoi thoai, khong nhan them.
+- Tuyet doi khong dung "u", "um", "um em nhe", "um duoc roi"; neu can xac nhan ngan thi dung "Oki em nha".
 - Hieu "co/dung/vang/da" theo dung cau hoi gan nhat cua assistant.
 - Neu cau hoi gan nhat la ve cam xuc, dong luc, chi tieu hoac tien bac, "co" chi xac nhan van de, khong co nghia la da dang ky hoac da hoc.
 - Khi chua ro trang thai dang ky va can hoi "da dang ky khoa Khoi Thong Dong Tien chua?", chi hoi cau do roi dung.
@@ -239,8 +264,9 @@ async function saveUserMessageDuringHumanTakeover(senderId, userText, chatState,
 
 async function handleMessage(senderId, userText, env) {
   try {
-    const chatState = await getChatState(senderId, env);
+    let chatState = await getChatState(senderId, env);
     let messages = chatState.messages;
+    const customerName = chatState.customerName || (await getMessengerCustomerName(senderId, env));
     const normalizedText = normalizeVietnameseText(userText);
     const ahachatCourseAnswer = shouldHandleAhachatCourseAnswer(normalizedText, chatState);
 
@@ -297,14 +323,44 @@ async function handleMessage(senderId, userText, env) {
         registered: isRegistered,
         nextStep: isRegistered
           ? "Hẹn khách ở buổi học tiếp theo"
-          : "Gửi link đăng ký khóa Khơi Thông Dòng Tiền",
+          : "Hỏi vấn đề tài chính hoặc công việc của khách trước khi gửi link đăng ký",
       };
     }
+
+    const replyToken = createReplyToken();
+    const pendingNowIso = new Date().toISOString();
+    await saveChatState(
+      senderId,
+      {
+        ...chatState,
+        messages: messages.slice(-MAX_HISTORY_MESSAGES),
+        lastSeen: pendingNowIso,
+        status:
+          getAhachatAnswerStatus(normalizedText, ahachatCourseAnswer) ||
+          getUpdatedStatus(userText, chatState.status),
+        firstMessage: chatState.firstMessage || userText,
+        customerName,
+        customerProfile,
+        pendingReplyToken: replyToken,
+      },
+      env,
+    );
+
+    await delay(getUserMessageSettleMs(env));
+
+    const latestState = await getChatState(senderId, env);
+    if (latestState.pendingReplyToken !== replyToken) {
+      return;
+    }
+
+    chatState = latestState;
+    messages = chatState.messages;
+    customerProfile = chatState.customerProfile;
 
     if (isMeditationFileRequest(normalizedText)) {
       messages.push({
         role: "assistant",
-        content: `${MEDITATION_FILE_BLOCK}[NEXT]${MEDITATION_FILE_NOTE}[NEXT]${AHACHAT_COURSE_QUESTION}`,
+        content: `${MEDITATION_FILE_BLOCK}[NEXT]${MEDITATION_FILE_NOTE}`,
       });
       messages = messages.slice(-MAX_HISTORY_MESSAGES);
 
@@ -315,9 +371,11 @@ async function handleMessage(senderId, userText, env) {
           lastSeen: new Date().toISOString(),
           status: "interested",
           firstMessage: chatState.firstMessage || userText,
+          customerName,
           customerProfile,
-          ahachatGate: "ready_for_course_answer",
-          ahachatGateAt: new Date().toISOString(),
+          pendingReplyToken: null,
+          ahachatGate: null,
+          ahachatGateAt: null,
         },
         env,
       );
@@ -326,7 +384,31 @@ async function handleMessage(senderId, userText, env) {
       return;
     }
 
-    const ruleBasedAnswer = getRuleBasedAnswer(userText, messages);
+    const ruleBasedAnswer = getRuleBasedAnswer(userText, messages, customerName, customerProfile);
+
+    if (ruleBasedAnswer === SILENT_REPLY) {
+      messages = messages.slice(-MAX_HISTORY_MESSAGES);
+      await saveChatState(
+        senderId,
+        {
+          messages,
+          lastSeen: new Date().toISOString(),
+          status: getAhachatAnswerStatus(normalizedText, ahachatCourseAnswer) || getUpdatedStatus(userText, chatState.status),
+          firstMessage: chatState.firstMessage || userText,
+          customerName,
+          customerProfile,
+          ahachatGate: ahachatCourseAnswer || isHumanFollowupMessage(normalizedText) ? null : chatState.ahachatGate,
+          ahachatGateAt:
+            ahachatCourseAnswer || isHumanFollowupMessage(normalizedText) ? null : chatState.ahachatGateAt,
+          registrationLinkSentAt: chatState.registrationLinkSentAt,
+          registrationFollowupSentAt: chatState.registrationFollowupSentAt,
+          remarketingSentAt: chatState.remarketingSentAt,
+          pendingReplyToken: null,
+        },
+        env,
+      );
+      return;
+    }
 
     if (ruleBasedAnswer) {
       messages.push({
@@ -335,16 +417,24 @@ async function handleMessage(senderId, userText, env) {
       });
       messages = messages.slice(-MAX_HISTORY_MESSAGES);
 
-      const updatedState = {
+      const nowIso = new Date().toISOString();
+      const updatedState = withRegistrationFollowupState(
+        {
         messages,
-        lastSeen: new Date().toISOString(),
+        lastSeen: nowIso,
         status: getAhachatAnswerStatus(normalizedText, ahachatCourseAnswer) || getUpdatedStatus(userText, chatState.status),
         firstMessage: chatState.firstMessage || userText,
+        customerName,
         customerProfile,
+        pendingReplyToken: null,
         ahachatGate: ahachatCourseAnswer || isHumanFollowupMessage(normalizedText) ? null : chatState.ahachatGate,
         ahachatGateAt:
           ahachatCourseAnswer || isHumanFollowupMessage(normalizedText) ? null : chatState.ahachatGateAt,
-      };
+        },
+        chatState,
+        ruleBasedAnswer,
+        nowIso,
+      );
 
       await saveChatState(senderId, updatedState, env);
 
@@ -357,7 +447,10 @@ async function handleMessage(senderId, userText, env) {
     }
 
     messages = messages.slice(-MAX_HISTORY_MESSAGES);
-    const answer = await askClaude(messages, env, userText, customerProfile);
+    const answer = sanitizeAnswerForUserRequest(
+      await askClaude(messages, env, userText, customerProfile),
+      normalizedText,
+    );
 
     messages.push({
       role: "assistant",
@@ -365,33 +458,37 @@ async function handleMessage(senderId, userText, env) {
     });
     messages = messages.slice(-MAX_HISTORY_MESSAGES);
 
-    const updatedState = {
+    const nowIso = new Date().toISOString();
+    const updatedState = withRegistrationFollowupState(
+      {
       messages,
-      lastSeen: new Date().toISOString(),
+      lastSeen: nowIso,
       status: getAhachatAnswerStatus(normalizedText, ahachatCourseAnswer) || getUpdatedStatus(userText, chatState.status),
       firstMessage: chatState.firstMessage || userText,
+      customerName,
       customerProfile,
+      pendingReplyToken: null,
       ahachatGate: ahachatCourseAnswer || isHumanFollowupMessage(normalizedText) ? null : chatState.ahachatGate,
       ahachatGateAt:
         ahachatCourseAnswer || isHumanFollowupMessage(normalizedText) ? null : chatState.ahachatGateAt,
-    };
+      },
+      chatState,
+      answer,
+      nowIso,
+    );
 
     await saveChatState(senderId, updatedState, env);
 
     await sendMessengerParts(senderId, answer, env);
   } catch (error) {
     console.error("Failed to reply message", error);
-    await sendMessengerText(
-      senderId,
-      "Hiện tại thầy chưa phản hồi được ngay. Bạn vui lòng nhắn lại sau ít phút nhé.",
-      env,
-    );
   }
 }
 
-function getRuleBasedAnswer(userText, messages = []) {
+function getRuleBasedAnswer(userText, messages = [], customerName = "", customerProfile = {}) {
   const normalizedText = normalizeVietnameseText(userText);
-  const greetings = ["chao", "chao ban", "xin chao", "chao thay", "xin chao thay", "hello", "hi"];
+  const greetingReply = getGreetingReply(normalizedText);
+  const profile = sanitizeCustomerProfile(customerProfile);
 
   if (isGiftScriptRequest(normalizedText) || isMoneyGratitudeRequest(normalizedText)) {
     return getGiftScriptKeywordAnswer();
@@ -405,16 +502,40 @@ function getRuleBasedAnswer(userText, messages = []) {
     return getGiftScriptKeywordAnswer();
   }
 
-  if (greetings.includes(normalizedText)) {
-    return "Chào bạn, mình có thể giúp gì cho bạn?";
+  if (greetingReply) {
+    return greetingReply;
+  }
+
+  if (isHumanFollowupMessage(normalizedText)) {
+    return "Mình đây, mình có thể giúp gì cho bạn?";
   }
 
   if (isGroupOrScheduleConfirmation(normalizedText)) {
     return "Đúng rồi em, mai có buổi chia sẻ buổi trưa đó[NEXT]Em để ý thông báo trong nhóm để vào đúng giờ nhé";
   }
 
+  if (isGenderCorrection(normalizedText)) {
+    return "Mình xin lỗi, mình nhầm. Bạn đang làm công việc gì và khoản nợ hiện tại khoảng bao nhiêu vậy?";
+  }
+
   if (isHeavyDebtDisclosure(normalizedText)) {
-    return "Mình nghe em nói vậy thấy áp lực này rất nặng, nhất là khi nợ nhiều phía cùng dồn lại[NEXT]Lúc này mình đừng vội quyết gì lớn, trước hết cần bình tâm để nhìn lại từng khoản và hướng đi mới";
+    return getHeavyDebtAnswer(normalizedText, profile);
+  }
+
+  if (isDebtEconomicPressureStatement(normalizedText)) {
+    return getDebtPressureQuestion(normalizedText, profile);
+  }
+
+  if (isTryingButUnluckyBusinessStatement(normalizedText)) {
+    return getTryingButUnluckyBusinessAnswer(normalizedText, profile);
+  }
+
+  if (isEnergyBlockConfirmation(normalizedText, messages)) {
+    return getEnergyBlockConfirmationAnswer(normalizedText, profile);
+  }
+
+  if (isPreStudyResourceQuestion(normalizedText)) {
+    return "Em cứ đăng ký nha. Đăng ký xong sẽ có bạn gọi cho em hướng dẫn cụ thể hơn cách thực hành";
   }
 
   if (isAdvancedCourseConsultRequest(normalizedText)) {
@@ -429,12 +550,24 @@ function getRuleBasedAnswer(userText, messages = []) {
     return "Mình hiểu rồi[NEXT]Cụ thể bạn đang gặp vấn đề gì vậy?";
   }
 
+  if (isEmotionalFollowupStatement(normalizedText)) {
+    return getEmotionalFollowupAnswer(normalizedText);
+  }
+
+  if (isFinancialPressureProblem(normalizedText)) {
+    return "Mình hiểu rồi. Áp lực tài chính của bạn đang đến nhiều từ nợ, thu nhập chưa ổn hay bán hàng không ra đơn?";
+  }
+
   if (isDebtFamilyPressureStatement(normalizedText)) {
-    return "Thế này chắc em áp lực lắm đúng không, khi nợ và chuyện gia đình dồn lại thế này[NEXT]Thế em đã có cách nào xử lý vấn đề trên chưa?";
+    return "Nhiều cái áp lực thế hả em, em có thể chia sẻ cụ thể vấn đề với mình được không?";
   }
 
   if (isCourseOverviewQuestion(normalizedText)) {
-    return "Bên mình có khóa Khơi Thông Dòng Tiền miễn phí. Khóa giúp mình nhìn rõ điểm tắc với tiền[NEXT]Bạn đang gặp vấn đề gì cần mình hỗ trợ không?";
+    return "Đây là khóa Khơi Thông Dòng Tiền Miễn Phí, học 4 buổi. Khóa giúp mình nhìn rõ vì sao tài chính bị áp lực, bán hàng khó ra tiền và cách gỡ lại từ bên trong.";
+  }
+
+  if (isSalesNoOrdersProblem(normalizedText)) {
+    return "Mình hiểu rồi. Áp lực tài chính mà bán không ra đơn thì rất căng.[NEXT]Bạn đang bán sản phẩm gì và tình trạng này kéo dài bao lâu rồi?";
   }
 
   if (
@@ -450,7 +583,7 @@ function getRuleBasedAnswer(userText, messages = []) {
     normalizedText.includes("them ve") ||
     normalizedText.includes("noi ro hon")
   ) {
-    return "Đây là khóa Khơi Thông Dòng Tiền miễn phí 4 buổi[NEXT]Khóa giúp mình nhìn lại niềm tin, cảm xúc và năng lượng đang làm tiền bị tắc";
+    return getAdInfoAnswer(customerName);
   }
 
   const lastAssistantMessage = getLastAssistantMessage(messages);
@@ -459,13 +592,21 @@ function getRuleBasedAnswer(userText, messages = []) {
     return "Vụ học phí 3tr5 và đặt cọc, để trợ lý bên mình kiểm tra đúng chính sách cho em nhé[NEXT]Em để lại số điện thoại, bên mình gọi tư vấn kỹ hơn cho em";
   }
 
+  if (isFreeCourseFeeAndFitQuestion(normalizedText)) {
+    return `Học được bạn nhé. Khóa này không yêu cầu bạn phải kinh doanh hay có nền tảng gì trước.[NEXT]Khóa Khơi Thông Dòng Tiền hiện là Miễn Phí, học 4 buổi. Bạn có thể học để nhìn lại áp lực tiền bạc, tâm lý sợ sai và cách mình đang bị kẹt với dòng tiền.[NEXT]Bạn đăng ký ở link này nha: ${REGISTRATION_LINK}`;
+  }
+
   if (isUnregisteredCourseResponse(normalizedText, lastAssistantMessage?.content || "")) {
-    return "Thế bạn kích link sau đăng ký nhé[NEXT]Đây là link nha: https://luathapdan.vn/dao-tao/khoi-thong-dong-tien-thuonghieu[NEXT]Kích vào link đăng ký luôn nhé";
+    if (isRegistrationReminderQuestion(lastAssistantMessage?.content || "")) {
+      return `Dạ, vậy em đăng ký ở link này nha: ${REGISTRATION_LINK}[NEXT]Đăng ký xong sẽ có bạn gọi hướng dẫn cụ thể hơn cho em`;
+    }
+
+    return "Ukm, thế cho mình hỏi chút nha, bạn có đang gặp các vấn đề nào về tài chính hoặc công việc cần mình hỗ trợ không";
   }
 
   if (isSimpleRegistrationAffirmative(normalizedText)) {
     if (lastAssistantMessage && isRegistrationQuestion(lastAssistantMessage.content)) {
-      return "Ừm tốt rồi em[NEXT]Em để ý thông báo trong nhóm để vào buổi học đúng giờ nhé";
+      return "Cảm ơn em đã đăng ký nhé[NEXT]Hẹn gặp em tại khóa học Khơi Thông Dòng Tiền";
     }
   }
 
@@ -477,14 +618,14 @@ function getRuleBasedAnswer(userText, messages = []) {
     const lastAssistantMessage = getLastAssistantMessage(messages);
 
     if (lastAssistantMessage && isRegistrationQuestion(lastAssistantMessage.content)) {
-      return "Ừm tốt rồi em[NEXT]Em để ý thông báo trong nhóm để vào buổi học đúng giờ nhé";
+      return "Cảm ơn em đã đăng ký nhé[NEXT]Hẹn gặp em tại khóa học Khơi Thông Dòng Tiền";
     }
   }
 
   if (
     isRegisteredCourseResponse(normalizedText)
   ) {
-    return "Ừm tốt rồi em[NEXT]Em để ý thông báo trong nhóm để vào buổi học đúng giờ nhé";
+    return "Cảm ơn em đã đăng ký nhé[NEXT]Hẹn gặp em tại khóa học Khơi Thông Dòng Tiền";
   }
 
   if (
@@ -511,8 +652,16 @@ function getRuleBasedAnswer(userText, messages = []) {
     return getThanksReply(messages);
   }
 
-  const exactAcknowledgements = ["vang", "da", "ok"];
-  const flexibleAcknowledgements = ["oke", "okie"];
+  const exactAcknowledgements = ["vang", "da", "da vang", "ok"];
+  const flexibleAcknowledgements = ["oke", "okie", "oki"];
+
+  if (shouldIntroduceCourseAfterConfirmation(normalizedText, messages, profile)) {
+    return getContextualCourseIntro(messages, profile);
+  }
+
+  if (isEndingAcknowledgement(normalizedText, lastAssistantMessage?.content || "")) {
+    return SILENT_REPLY;
+  }
 
   if (
     exactAcknowledgements.includes(normalizedText) ||
@@ -521,10 +670,186 @@ function getRuleBasedAnswer(userText, messages = []) {
         normalizedText === acknowledgement || normalizedText.startsWith(`${acknowledgement} `),
     )
   ) {
-    return "Ừm em nhé";
+    return "Oki em nha";
   }
 
   return null;
+}
+
+function isEndingAcknowledgement(normalizedText, lastAssistantText = "") {
+  if (!isShortAcknowledgement(normalizedText) || !lastAssistantText) {
+    return false;
+  }
+
+  const lastAssistant = normalizeVietnameseText(lastAssistantText);
+
+  if (isShortAcknowledgement(lastAssistant)) {
+    return true;
+  }
+
+  return !lastAssistant.includes("?");
+}
+
+function isShortAcknowledgement(normalizedText) {
+  return (
+    ["vang", "da", "ok", "oke", "okie", "oki", "um", "uhm", "uh", "duoc"].includes(normalizedText) ||
+    normalizedText === "da vang" ||
+    normalizedText === "da vang a" ||
+    normalizedText === "vang a" ||
+    normalizedText === "da a" ||
+    normalizedText === "ok a" ||
+    normalizedText === "oke a" ||
+    normalizedText === "oki a" ||
+    normalizedText === "oki e" ||
+    normalizedText === "oki em"
+  );
+}
+
+function shouldIntroduceCourseAfterConfirmation(normalizedText, messages = [], profile = {}) {
+  const confirms =
+    isAffirmativeResponse(normalizedText) ||
+    isShortAcknowledgement(normalizedText) ||
+    normalizedText.includes("dung roi") ||
+    normalizedText.includes("chuan roi") ||
+    normalizedText.includes("dung the") ||
+    normalizedText.includes("phai roi");
+
+  if (!confirms || hasRecentAssistantMessage(messages, isCourseIntroAssistantMessage)) {
+    return false;
+  }
+
+  const lastAssistantMessage = getLastAssistantMessage(messages);
+  const lastAssistantText = normalizeVietnameseText(lastAssistantMessage?.content || "");
+
+  if (lastAssistantText.includes("?")) {
+    return false;
+  }
+
+  const hasProblemContext =
+    Boolean(profile.problem || profile.problemType) ||
+    recentMessagesInclude(messages, (text) =>
+      isProblemMessage(text) ||
+      isSalesNoOrdersProblem(text) ||
+      isFinancialPressureProblem(text) ||
+      text.includes("ban hang") ||
+      text.includes("ap luc"),
+    );
+
+  if (!hasProblemContext) {
+    return false;
+  }
+
+  return hasRecentAssistantMessage(messages, (assistantText) =>
+    assistantText.includes("ap luc") ||
+    assistantText.includes("ban khong ra don") ||
+    assistantText.includes("ban hang") ||
+    assistantText.includes("no nan") ||
+    assistantText.includes("cang") ||
+    assistantText.includes("kho ra tien"),
+  );
+}
+
+function getContextualCourseIntro(messages = [], profile = {}) {
+  const contextText = getRecentConversationText(messages);
+  const problem = getCourseProblemBenefit(contextText, profile);
+
+  return `Đúng rồi. Bên mình có khóa Khơi Thông Dòng Tiền, khóa học hoàn toàn Miễn Phí.[NEXT]Khóa này có thể giúp bạn xử lý các điểm tắc về tiền, khơi lại dòng chảy tài chính. Với trường hợp của bạn là giúp gỡ ${problem}.`;
+}
+
+function getCourseProblemBenefit(contextText, profile = {}) {
+  const normalizedText = normalizeVietnameseText(
+    `${contextText} ${profile.problem || ""} ${profile.problemType || ""}`,
+  );
+
+  if (
+    normalizedText.includes("ban khong ra don") ||
+    normalizedText.includes("khong ra don") ||
+    normalizedText.includes("ban hang") ||
+    normalizedText.includes("ban cham") ||
+    normalizedText.includes("it khach")
+  ) {
+    return "vấn đề bán hàng khó ra đơn, để khách dễ về hơn";
+  }
+
+  if (normalizedText.includes("no")) {
+    return "áp lực nợ nần và cách nhìn lại dòng tiền đang bị tắc";
+  }
+
+  if (normalizedText.includes("thu nhap") || normalizedText.includes("tai chinh")) {
+    return "áp lực tài chính và thu nhập chưa ổn định";
+  }
+
+  return "vấn đề tài chính mình đang gặp";
+}
+
+function isCourseIntroAssistantMessage(normalizedText) {
+  return (
+    normalizedText.includes("khoa khoi thong dong tien") &&
+    (normalizedText.includes("mien phi") || normalizedText.includes("diem tac ve tien"))
+  );
+}
+
+function recentMessagesInclude(messages = [], predicate) {
+  return messages.slice(-8).some(
+    (message) =>
+      typeof message.content === "string" &&
+      predicate(normalizeVietnameseText(message.content)),
+  );
+}
+
+function getRecentConversationText(messages = []) {
+  return messages
+    .slice(-8)
+    .map((message) => (typeof message.content === "string" ? message.content : ""))
+    .join(" ");
+}
+
+function getGreetingReply(normalizedText) {
+  if (startsWithAny(normalizedText, ["chao em", "xin chao em"])) {
+    return "Chào chị, em có thể giúp gì cho chị?";
+  }
+
+  if (startsWithAny(normalizedText, ["chao anh", "xin chao anh"])) {
+    return "Chào em, anh có thể giúp gì cho em?";
+  }
+
+  if (startsWithAny(normalizedText, ["chao chau", "xin chao chau"])) {
+    if (/\bco\b/.test(normalizedText)) {
+      return "Chào cô, cháu có thể giúp gì cho cô?";
+    }
+
+    if (/\bchu\b/.test(normalizedText)) {
+      return "Chào chú, cháu có thể giúp gì cho chú?";
+    }
+
+    return "Chào cô/chú, cháu có thể giúp gì cho cô/chú?";
+  }
+
+  if (
+    [
+      "chao",
+      "chao ban",
+      "xin chao",
+      "chao thay",
+      "xin chao thay",
+      "hello",
+      "hi",
+    ].includes(normalizedText)
+  ) {
+    return "Chào bạn, mình có thể giúp gì cho bạn?";
+  }
+
+  return null;
+}
+
+function startsWithAny(text, phrases) {
+  return phrases.some((phrase) => text === phrase || text.startsWith(`${phrase} `) || text.startsWith(`${phrase},`));
+}
+
+function getAdInfoAnswer(customerName = "") {
+  const namePart = customerName ? ` ${customerName}` : "";
+
+  return `Em chào chị${namePart}, cảm ơn chị đã quan tâm khóa học bên em[NEXT]Đây là khóa học Khơi Thông Dòng Tiền, học 4 buổi giúp chị nhìn lại niềm tin, cảm xúc và năng lượng đang làm dòng tiền bị tắc. Khóa cũng giúp chị hiểu vì sao càng áp lực tài chính thì công việc, bán hàng và thu nhập càng dễ khó khăn hơn[NEXT]Không biết, chị có đang gặp vấn đề nào về tài chính không ạ?`;
 }
 
 function isAdvancedCourseConsultRequest(normalizedText) {
@@ -569,6 +894,34 @@ function isPaidCoursePaymentQuestion(normalizedText) {
     normalizedText.includes("hoi thay");
 
   return mentionsPaidCourse && asksPayment;
+}
+
+function isFreeCourseFeeAndFitQuestion(normalizedText) {
+  const asksFit =
+    normalizedText.includes("hoc duoc khong") ||
+    normalizedText.includes("hoc duoc k") ||
+    normalizedText.includes("hoc duoc ko") ||
+    normalizedText.includes("lam cong nhan hoc duoc") ||
+    normalizedText.includes("cong nhan hoc duoc") ||
+    normalizedText.includes("co nen hoc") ||
+    normalizedText.includes("hoc duoc");
+
+  const asksFee =
+    normalizedText.includes("phi the nao") ||
+    normalizedText.includes("hoc phi") ||
+    normalizedText.includes("phi sao") ||
+    normalizedText.includes("co mat phi") ||
+    normalizedText.includes("bao nhieu tien") ||
+    normalizedText.includes("mien phi") ||
+    normalizedText.includes("phi");
+
+  const mentionsCourseContext =
+    normalizedText.includes("khoa") ||
+    normalizedText.includes("hoc") ||
+    normalizedText.includes("khoi thong") ||
+    normalizedText.includes("cong nhan");
+
+  return mentionsCourseContext && (asksFee || (asksFit && normalizedText.includes("phi")));
 }
 
 function isSimpleRegistrationAffirmative(normalizedText) {
@@ -652,6 +1005,34 @@ function isCourseOverviewQuestion(normalizedText) {
   );
 }
 
+function isSalesNoOrdersProblem(normalizedText) {
+  const mentionsSales =
+    normalizedText.includes("ban khong ra don") ||
+    normalizedText.includes("ban khong ra tien") ||
+    normalizedText.includes("khong ra don") ||
+    normalizedText.includes("khong co don") ||
+    normalizedText.includes("it don") ||
+    normalizedText.includes("ban cham") ||
+    normalizedText.includes("ban hang let det");
+
+  const mentionsPressure =
+    normalizedText.includes("ap luc") ||
+    normalizedText.includes("tai chinh") ||
+    normalizedText.includes("no") ||
+    normalizedText.includes("ban");
+
+  return mentionsSales && mentionsPressure;
+}
+
+function isFinancialPressureProblem(normalizedText) {
+  return (
+    normalizedText.includes("ap luc tai chinh") ||
+    normalizedText.includes("ap luc ve tai chinh") ||
+    normalizedText.includes("bi ap luc tien") ||
+    normalizedText.includes("ap luc tien bac")
+  );
+}
+
 function isMeditationFileRequest(normalizedText) {
   const asksForFile =
     normalizedText.includes("xin file") ||
@@ -668,6 +1049,248 @@ function isMeditationFileRequest(normalizedText) {
     normalizedText.includes("phan qua");
 
   return asksForFile && asksForMeditation;
+}
+
+function isDebtEconomicPressureStatement(normalizedText) {
+  const mentionsDebt =
+    /\bno\b/.test(normalizedText) ||
+    normalizedText.includes("no nan") ||
+    normalizedText.includes("no tien");
+
+  const mentionsPressure =
+    normalizedText.includes("ap luc") ||
+    normalizedText.includes("kinh te") ||
+    normalizedText.includes("kho khan") ||
+    normalizedText.includes("tai chinh");
+
+  return mentionsDebt && mentionsPressure;
+}
+
+function getDebtPressureQuestion(normalizedText, profile = {}) {
+  const pronoun = getCustomerPronoun(normalizedText, profile);
+  const mentionsEconomy =
+    normalizedText.includes("kinh te") ||
+    normalizedText.includes("thi truong") ||
+    normalizedText.includes("buon ban kho") ||
+    normalizedText.includes("ban hang kho");
+
+  const opener = mentionsEconomy
+    ? "Vâng, thời điểm hiện tại kinh tế khó khăn thật."
+    : "Mình hiểu, áp lực nợ nần như vậy chắc không dễ chịu chút nào.";
+
+  if (pronoun === "chi") {
+    return `${opener} Thế chị đang nợ khoảng bao nhiêu, hiện chị làm công việc gì và thu nhập mỗi tháng tầm bao nhiêu?`;
+  }
+
+  if (pronoun === "em") {
+    return `${opener} Thế em đang nợ khoảng bao nhiêu, hiện em làm công việc gì và thu nhập mỗi tháng tầm bao nhiêu?`;
+  }
+
+  return `${opener} Bạn đang nợ khoảng bao nhiêu, hiện bạn làm công việc gì và thu nhập mỗi tháng tầm bao nhiêu?`;
+}
+
+function getHeavyDebtAnswer(normalizedText, profile = {}) {
+  const pronoun = profile.preferredPronoun || getCustomerPronoun(normalizedText);
+  const mentionsWorkBlocked =
+    normalizedText.includes("ban hang") ||
+    normalizedText.includes("cong viec") ||
+    normalizedText.includes("let det") ||
+    normalizedText.includes("khong ra tien") ||
+    normalizedText.includes("ban cham");
+
+  if (pronoun === "chi") {
+    const pressureText = mentionsWorkBlocked
+      ? "Chị bị nợ nhiều như vậy mà công việc không ra tiền thế này áp lực lắm nhỉ."
+      : "Chị bị nợ nhiều như vậy chắc áp lực lắm nhỉ.";
+    return `${pressureText}[NEXT]Chị có cách gì xử lý nợ nần chưa?`;
+  }
+
+  if (pronoun === "em") {
+    const pressureText = mentionsWorkBlocked
+      ? "Em bị nợ nhiều như vậy mà công việc không ra tiền thế này áp lực lắm nhỉ."
+      : "Em bị nợ nhiều như vậy chắc áp lực lắm nhỉ.";
+    return `${pressureText}[NEXT]Em có cách gì xử lý nợ nần chưa?`;
+  }
+
+  const pressureText = mentionsWorkBlocked
+    ? "Bạn bị nợ nhiều thế mà công việc không ra tiền thế này áp lực lắm nhỉ."
+    : "Bạn bị nợ nhiều như vậy chắc áp lực lắm nhỉ.";
+  return `${pressureText}[NEXT]Bạn có cách gì xử lý nợ nần chưa?`;
+}
+
+function getCustomerPronoun(normalizedText, profile = {}) {
+  if (profile.preferredPronoun) {
+    return profile.preferredPronoun;
+  }
+
+  return detectPreferredPronoun(normalizedText) || "ban";
+}
+
+function detectPreferredPronoun(normalizedText) {
+  if (isGenderCorrection(normalizedText)) {
+    return "ban";
+  }
+
+  if (/\bchi\b/.test(normalizedText) || /\bc\b/.test(normalizedText)) {
+    return "chi";
+  }
+
+  if (/\bem\b/.test(normalizedText) || /\be\b/.test(normalizedText)) {
+    return "em";
+  }
+
+  if (/\bminh\b/.test(normalizedText) || /\btoi\b/.test(normalizedText)) {
+    return "ban";
+  }
+
+  return "";
+}
+
+function inferPreferredPronounFromMessages(messages = []) {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message?.role !== "user" || typeof message.content !== "string") {
+      continue;
+    }
+
+    const pronoun = detectPreferredPronoun(normalizeVietnameseText(message.content));
+    if (pronoun) {
+      return pronoun;
+    }
+  }
+
+  return "";
+}
+
+function isGenderCorrection(normalizedText) {
+  return (
+    normalizedText.includes("dan ong") ||
+    normalizedText.includes("la nam") ||
+    normalizedText.includes("toi nam") ||
+    normalizedText.includes("minh nam") ||
+    normalizedText.includes("con trai")
+  );
+}
+
+function isEmotionalFollowupStatement(normalizedText) {
+  return (
+    normalizedText.includes("loay hoay") ||
+    normalizedText.includes("mat nang luong") ||
+    normalizedText.includes("mat niem tin") ||
+    normalizedText.includes("mat niem tin vao ban than") ||
+    normalizedText.includes("khong tin vao ban than") ||
+    normalizedText.includes("roi qua") ||
+    normalizedText.includes("be tac qua")
+  );
+}
+
+function getEmotionalFollowupAnswer(normalizedText) {
+  if (normalizedText.includes("loay hoay")) {
+    return "Mình hiểu, lúc đang áp lực tài chính mà chưa thấy hướng ra thì rất dễ loay hoay.";
+  }
+
+  if (normalizedText.includes("mat nang luong")) {
+    return "Đúng rồi em, càng loay hoay thì năng lượng càng tụt, nên mình cần bình tĩnh lại trước rồi mới tính hướng xử lý.";
+  }
+
+  if (
+    normalizedText.includes("mat niem tin") ||
+    normalizedText.includes("khong tin vao ban than")
+  ) {
+    return "Mình hiểu, nhưng đây chỉ là trạng thái khi em bị áp lực lâu quá, không phải là em không có khả năng.";
+  }
+
+  return "Mình hiểu, lúc áp lực kéo dài thì tâm trí rất dễ rối. Mình cứ bình tĩnh gỡ từng phần trước.";
+}
+
+function isTryingButUnluckyBusinessStatement(normalizedText) {
+  const mentionsNoSolution =
+    /\bchua\b/.test(normalizedText) ||
+    normalizedText.includes("chua biet cach") ||
+    normalizedText.includes("khong biet cach");
+
+  const mentionsBusiness =
+    normalizedText.includes("ban hang") ||
+    normalizedText.includes("kinh doanh") ||
+    normalizedText.includes("cong viec");
+
+  const mentionsBlockedFeeling =
+    normalizedText.includes("may man") ||
+    normalizedText.includes("cong viec khong tot") ||
+    normalizedText.includes("khong tot") ||
+    normalizedText.includes("van co") ||
+    normalizedText.includes("co gang");
+
+  return mentionsNoSolution && mentionsBusiness && mentionsBlockedFeeling;
+}
+
+function getTryingButUnluckyBusinessAnswer(normalizedText, profile = {}) {
+  const pronoun = getCustomerPronoun(normalizedText, profile);
+
+  if (pronoun === "chi") {
+    return "Vâng, em hiểu. Nhưng chị có cảm giác khi tinh thần, năng lượng không ổn, đặc biệt cảm giác bất an trong mình lớn thì công việc càng khó khăn hơn không";
+  }
+
+  if (pronoun === "em") {
+    return "Mình hiểu. Nhưng em có cảm giác khi tinh thần, năng lượng không ổn, đặc biệt cảm giác bất an trong mình lớn thì công việc càng khó khăn hơn không";
+  }
+
+  return "Mình hiểu. Nhưng bạn có cảm giác khi tinh thần, năng lượng không ổn, đặc biệt cảm giác bất an trong mình lớn thì công việc càng khó khăn hơn không";
+}
+
+function isEnergyBlockConfirmation(normalizedText, messages = []) {
+  const confirms =
+    isAffirmativeResponse(normalizedText) ||
+    normalizedText.includes("cang ngay cang kho") ||
+    normalizedText.includes("ngay cang kho") ||
+    normalizedText.includes("kho hon");
+
+  if (!confirms) {
+    return false;
+  }
+
+  return hasRecentAssistantMessage(messages, (assistantText) =>
+    assistantText.includes("tinh than") &&
+    assistantText.includes("nang luong") &&
+    assistantText.includes("bat an") &&
+    assistantText.includes("cong viec"),
+  );
+}
+
+function getEnergyBlockConfirmationAnswer(normalizedText, profile = {}) {
+  const pronoun = getCustomerPronoun(normalizedText, profile);
+
+  if (pronoun === "chi") {
+    return "Nhiều học viên bên em cũng gặp vấn đề tương tự, họ đến học muốn thay đổi tài chính. Em bảo họ nếu không thay đổi năng lượng đen đủi, bất an này thì có làm gì cũng không ra tiền chị ạ[NEXT]Để giải quyết vấn đề này, chị học thử 1 khóa KHƠI THÔNG DÒNG TIỀN bên em đi, khóa này Miễn Phí dành cho cộng đồng thôi, nhưng sẽ giải quyết vấn đề của chị được";
+  }
+
+  if (pronoun === "em") {
+    return "Nhiều học viên bên mình cũng gặp vấn đề tương tự, họ đến học muốn thay đổi tài chính. Mình bảo họ nếu không thay đổi năng lượng đen đủi, bất an này thì có làm gì cũng khó ra tiền em ạ[NEXT]Để giải quyết vấn đề này, em học thử 1 khóa KHƠI THÔNG DÒNG TIỀN bên mình đi, khóa này Miễn Phí dành cho cộng đồng thôi, nhưng sẽ giải quyết vấn đề của em được";
+  }
+
+  return "Nhiều học viên bên mình cũng gặp vấn đề tương tự, họ đến học muốn thay đổi tài chính. Mình bảo họ nếu không thay đổi năng lượng đen đủi, bất an này thì có làm gì cũng khó ra tiền[NEXT]Để giải quyết vấn đề này, bạn học thử 1 khóa KHƠI THÔNG DÒNG TIỀN bên mình đi, khóa này Miễn Phí dành cho cộng đồng thôi, nhưng sẽ giải quyết vấn đề của bạn được";
+}
+
+function isPreStudyResourceQuestion(normalizedText) {
+  const asksResource =
+    normalizedText.includes("doc sach") ||
+    normalizedText.includes("sach gi") ||
+    normalizedText.includes("tham khao sach") ||
+    normalizedText.includes("xem truoc") ||
+    normalizedText.includes("hoc truoc") ||
+    normalizedText.includes("nghien cuu truoc") ||
+    normalizedText.includes("nghien cuu trc") ||
+    normalizedText.includes("chuan bi truoc");
+
+  const asksIntent =
+    normalizedText.includes("co nen") ||
+    normalizedText.includes("co the") ||
+    normalizedText.includes("duoc khong") ||
+    normalizedText.includes("dc khong") ||
+    normalizedText.includes("de") ||
+    normalizedText.includes("nen");
+
+  return asksResource && asksIntent;
 }
 
 function isDebtFamilyPressureStatement(normalizedText) {
@@ -700,6 +1323,8 @@ function isHeavyDebtDisclosure(normalizedText) {
 
   const hasLargeAmount =
     /\b\d+\s*(tr|trieu|ty)\b/.test(normalizedText) ||
+    /\b(hon|gan|khoang|tam)\s+(ti|ty)\b/.test(normalizedText) ||
+    /\b(mot|1)\s+(ti|ty)\b/.test(normalizedText) ||
     normalizedText.includes("tram trieu") ||
     normalizedText.includes("nhieu no");
 
@@ -708,6 +1333,8 @@ function isHeavyDebtDisclosure(normalizedText) {
     normalizedText.includes("cong ty") ||
     normalizedText.includes("pha san") ||
     normalizedText.includes("khong tra duoc") ||
+    normalizedText.includes("chua biet cach") ||
+    normalizedText.includes("khong biet cach") ||
     normalizedText.includes("tim huong di moi") ||
     normalizedText.includes("cong viec moi");
 
@@ -884,6 +1511,17 @@ function isRegistrationQuestion(text) {
     (normalizedText.includes("chua") ||
       normalizedText.includes("roi chu") ||
       normalizedText.includes("roi khong"))
+  );
+}
+
+function isRegistrationReminderQuestion(text) {
+  const normalizedText = normalizeVietnameseText(text);
+
+  return (
+    normalizedText.includes("hom qua") &&
+    normalizedText.includes("khoi thong dong tien") &&
+    normalizedText.includes("dang ky") &&
+    normalizedText.includes("roi chu")
   );
 }
 
@@ -1159,6 +1797,16 @@ function updateCustomerProfile(userText, currentProfile = {}, messages = []) {
   const lastAssistantIntent = getAssistantQuestionIntent(lastAssistantMessage?.content || "");
   const questionStreak = countRecentAssistantQuestions(messages);
 
+  const preferredPronoun = detectPreferredPronoun(normalizedText);
+  if (preferredPronoun) {
+    profile.preferredPronoun = preferredPronoun;
+  } else if (!profile.preferredPronoun) {
+    const historyPronoun = inferPreferredPronounFromMessages(messages);
+    if (historyPronoun) {
+      profile.preferredPronoun = historyPronoun;
+    }
+  }
+
   if (isSimpleRegistrationAffirmative(normalizedText) && lastAssistantIntent === "registration_status") {
     profile.registered = true;
     profile.nextStep = "Hẹn khách ở buổi học tiếp theo";
@@ -1172,7 +1820,7 @@ function updateCustomerProfile(userText, currentProfile = {}, messages = []) {
     isUnregisteredCourseResponse(normalizedText, lastAssistantMessage?.content || "")
   ) {
     profile.registered = false;
-    profile.nextStep = "Gửi link đăng ký khóa Khơi Thông Dòng Tiền";
+    profile.nextStep = "Hỏi vấn đề tài chính hoặc công việc của khách trước khi gửi link đăng ký";
   }
 
   if (!hasNegativeResponse(normalizedText) && (normalizedText.includes("hoc roi") || normalizedText.includes("da hoc"))) {
@@ -1243,6 +1891,8 @@ function sanitizeCustomerProfile(profile) {
     problem: typeof profile.problem === "string" ? profile.problem : "",
     duration: typeof profile.duration === "string" ? profile.duration : "",
     problemType: typeof profile.problemType === "string" ? profile.problemType : "",
+    preferredPronoun:
+      ["ban", "chi", "em"].includes(profile.preferredPronoun) ? profile.preferredPronoun : "",
     registered: typeof profile.registered === "boolean" ? profile.registered : null,
     hasAttended: typeof profile.hasAttended === "boolean" ? profile.hasAttended : null,
     nextStep: typeof profile.nextStep === "string" ? profile.nextStep : "",
@@ -1415,10 +2065,6 @@ function shouldMoveToClose(profile, normalizedText, questionStreak) {
     return false;
   }
 
-  if (profile.registered === false) {
-    return true;
-  }
-
   const hasEnoughContext =
     Boolean(profile.problemType || profile.problem) && Boolean(profile.duration || profile.business);
   const hasStrongPain = isProblemMessage(normalizedText);
@@ -1457,11 +2103,11 @@ function getConversationStrategy(profile) {
   }
 
   if (profile.conversationStage === "closing") {
-    return "Không hỏi thêm vấn đề; phản chiếu ngắn, chốt mềm bằng câu hỏi đã đăng ký chưa hoặc gửi link nếu khách chưa đăng ký.";
+    return "Chỉ chốt mềm khi đã hỏi chuyện và phản chiếu vấn đề đủ nhịp; nếu khách chưa chia sẻ rõ vấn đề thì chưa gửi link.";
   }
 
   if (profile.conversationStage === "diagnosing") {
-    return "Không hỏi lan man; chẩn đoán vấn đề, đưa insight năng lượng tiền bạc, rồi dẫn sang chốt mềm.";
+    return "Không vội gửi link; phản chiếu vấn đề, đưa insight năng lượng tiền bạc, hỏi thêm 1 ý cần thiết rồi mới dẫn sang khóa khi khách đã đồng cảm.";
   }
 
   return "Hỏi tối đa 1 câu để lấy thông tin còn thiếu, ưu tiên ngành/vấn đề/thời gian.";
@@ -1505,6 +2151,35 @@ function getAhachatAnswerStatus(normalizedText, isAhachatCourseAnswer) {
   return hasNegativeResponse(normalizedText) ? "interested" : "registered";
 }
 
+function withRegistrationFollowupState(nextState, previousState, assistantAnswer, nowIso) {
+  const updatedState = {
+    ...nextState,
+    registrationLinkSentAt:
+      typeof previousState.registrationLinkSentAt === "string"
+        ? previousState.registrationLinkSentAt
+        : null,
+    registrationFollowupSentAt:
+      typeof previousState.registrationFollowupSentAt === "string"
+        ? previousState.registrationFollowupSentAt
+        : null,
+    remarketingSentAt:
+      typeof previousState.remarketingSentAt === "string" ? previousState.remarketingSentAt : null,
+  };
+
+  if (updatedState.status === "registered" || updatedState.customerProfile?.registered === true) {
+    updatedState.registrationLinkSentAt = null;
+    updatedState.registrationFollowupSentAt = null;
+    return updatedState;
+  }
+
+  if (isRegistrationLinkAssistantMessage(normalizeVietnameseText(assistantAnswer))) {
+    updatedState.registrationLinkSentAt = nowIso;
+    updatedState.registrationFollowupSentAt = null;
+  }
+
+  return updatedState;
+}
+
 function normalizeVietnameseText(text) {
   return text
     .toLowerCase()
@@ -1540,6 +2215,33 @@ async function saveToSheet(senderId, firstMessage) {
   }
 }
 
+async function getMessengerCustomerName(senderId, env) {
+  if (!env.PAGE_ACCESS_TOKEN) {
+    return "";
+  }
+
+  try {
+    const response = await fetch(
+      `https://graph.facebook.com/v19.0/${encodeURIComponent(
+        senderId,
+      )}?fields=first_name,last_name&access_token=${encodeURIComponent(env.PAGE_ACCESS_TOKEN)}`,
+    );
+
+    if (!response.ok) {
+      return "";
+    }
+
+    const profile = await response.json();
+    return [profile.first_name, profile.last_name]
+      .filter((part) => typeof part === "string" && part.trim())
+      .join(" ")
+      .trim();
+  } catch (error) {
+    console.error("Messenger profile error", error);
+    return "";
+  }
+}
+
 async function getChatState(senderId, env) {
   const rawHistory = await env.CHAT_HISTORY.get(senderId);
 
@@ -1549,10 +2251,15 @@ async function getChatState(senderId, env) {
       lastSeen: null,
       status: "new",
       firstMessage: "",
+      customerName: "",
       customerProfile: {},
       ahachatGate: null,
       ahachatGateAt: null,
       humanTakeoverUntil: null,
+      registrationLinkSentAt: null,
+      registrationFollowupSentAt: null,
+      remarketingSentAt: null,
+      pendingReplyToken: null,
     };
   }
 
@@ -1565,10 +2272,15 @@ async function getChatState(senderId, env) {
         lastSeen: null,
         status: "new",
         firstMessage: getFirstUserMessage(data),
+        customerName: "",
         customerProfile: {},
         ahachatGate: null,
         ahachatGateAt: null,
         humanTakeoverUntil: null,
+        registrationLinkSentAt: null,
+        registrationFollowupSentAt: null,
+        remarketingSentAt: null,
+        pendingReplyToken: null,
       };
     }
 
@@ -1581,11 +2293,22 @@ async function getChatState(senderId, env) {
           typeof data.firstMessage === "string"
             ? data.firstMessage
             : getFirstUserMessage(data.messages),
+        customerName: typeof data.customerName === "string" ? data.customerName : "",
         customerProfile: sanitizeCustomerProfile(data.customerProfile),
         ahachatGate: isValidAhachatGate(data.ahachatGate) ? data.ahachatGate : null,
         ahachatGateAt: typeof data.ahachatGateAt === "string" ? data.ahachatGateAt : null,
         humanTakeoverUntil:
           typeof data.humanTakeoverUntil === "string" ? data.humanTakeoverUntil : null,
+        registrationLinkSentAt:
+          typeof data.registrationLinkSentAt === "string" ? data.registrationLinkSentAt : null,
+        registrationFollowupSentAt:
+          typeof data.registrationFollowupSentAt === "string"
+            ? data.registrationFollowupSentAt
+            : null,
+        remarketingSentAt:
+          typeof data.remarketingSentAt === "string" ? data.remarketingSentAt : null,
+        pendingReplyToken:
+          typeof data.pendingReplyToken === "string" ? data.pendingReplyToken : null,
       };
     }
 
@@ -1594,10 +2317,15 @@ async function getChatState(senderId, env) {
       lastSeen: null,
       status: "new",
       firstMessage: "",
+      customerName: "",
       customerProfile: {},
       ahachatGate: null,
       ahachatGateAt: null,
       humanTakeoverUntil: null,
+      registrationLinkSentAt: null,
+      registrationFollowupSentAt: null,
+      remarketingSentAt: null,
+      pendingReplyToken: null,
     };
   } catch (error) {
     console.error("Invalid chat history JSON", error);
@@ -1606,10 +2334,15 @@ async function getChatState(senderId, env) {
       lastSeen: null,
       status: "new",
       firstMessage: "",
+      customerName: "",
       customerProfile: {},
       ahachatGate: null,
       ahachatGateAt: null,
       humanTakeoverUntil: null,
+      registrationLinkSentAt: null,
+      registrationFollowupSentAt: null,
+      remarketingSentAt: null,
+      pendingReplyToken: null,
     };
   }
 }
@@ -1672,6 +2405,21 @@ function getHumanTakeoverTtlMinutes(env) {
     : DEFAULT_HUMAN_TAKEOVER_TTL_MINUTES;
 }
 
+function createReplyToken() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function getUserMessageSettleMs(env) {
+  const settleMs = Number(env.USER_MESSAGE_SETTLE_MS);
+  return Number.isFinite(settleMs) && settleMs >= 0
+    ? settleMs
+    : DEFAULT_USER_MESSAGE_SETTLE_MS;
+}
+
 function getHumanTakeoverUntil(env, now = new Date()) {
   return new Date(now.getTime() + getHumanTakeoverTtlMinutes(env) * 60 * 1000).toISOString();
 }
@@ -1711,24 +2459,63 @@ async function runRemarketing(env) {
         !data.lastSeen ||
         !data.status ||
         data.status === "registered" ||
+        data.status === "remarketed" ||
+        data.remarketingSentAt ||
         isHumanTakeoverActive(data, now)
       ) {
         continue;
       }
 
       const lastSeen = new Date(data.lastSeen);
+      if (Number.isNaN(lastSeen.getTime())) {
+        continue;
+      }
+
+      const minutesAgo = (now - lastSeen) / (1000 * 60);
       const hoursAgo = (now - lastSeen) / (1000 * 60 * 60);
+
+      if (
+        data.registrationLinkSentAt &&
+        !data.registrationFollowupSentAt &&
+        minutesAgo >= REGISTRATION_FOLLOWUP_MINUTES
+      ) {
+        const senderId = key.name;
+
+        await sendMessengerText(senderId, REGISTRATION_FOLLOWUP_MESSAGE, env);
+
+        data.registrationFollowupSentAt = now.toISOString();
+        data.messages = sanitizeMessages([
+          ...(Array.isArray(data.messages) ? data.messages : []),
+          {
+            role: "assistant",
+            content: REGISTRATION_FOLLOWUP_MESSAGE,
+          },
+        ]);
+
+        await env.CHAT_HISTORY.put(key.name, JSON.stringify(data), {
+          expirationTtl: 2592000,
+        });
+        continue;
+      }
 
       if (hoursAgo >= 20 && hoursAgo < 21) {
         const senderId = key.name;
         const message =
           data.status === "interested"
-            ? "Hôm qua bạn có hỏi về khóa học Khơi Thông Dòng Tiền, bạn đăng ký chưa nhỉ? Link đây nếu cần: https://luathapdan.vn/dao-tao/khoi-thong-dong-tien-thuonghieu"
-            : "Hôm qua mình có nói chuyện, bạn có muốn tìm hiểu thêm về khóa Khơi Thông Dòng Tiền không? Khóa miễn phí đó bạn ơi";
+            ? "Chào em nhé, hôm qua mình có chia sẻ về khóa học Khơi Thông Dòng Tiền, em đã đăng ký rồi chứ"
+            : "Chào em nhé, hôm qua mình có chia sẻ về khóa học Khơi Thông Dòng Tiền, em muốn mình gửi thêm thông tin không";
 
         await sendMessengerText(senderId, message, env);
 
         data.status = "remarketed";
+        data.remarketingSentAt = now.toISOString();
+        data.messages = sanitizeMessages([
+          ...(Array.isArray(data.messages) ? data.messages : []),
+          {
+            role: "assistant",
+            content: message,
+          },
+        ]);
         await env.CHAT_HISTORY.put(key.name, JSON.stringify(data), {
           expirationTtl: 2592000,
         });
@@ -1759,7 +2546,7 @@ async function askClaude(messages, env, userText, customerProfile = {}) {
     },
     body: JSON.stringify({
       model: CLAUDE_MODEL,
-      max_tokens: 420,
+      max_tokens: 220,
       system: [
         {
           type: "text",
@@ -1829,6 +2616,14 @@ function getCustomerProfileMessage(customerProfile) {
 
   if (profile.problemType) {
     details.push(`loại vấn đề: ${profile.problemType}`);
+  }
+
+  if (profile.preferredPronoun === "ban") {
+    details.push("xung ho: goi khach la ban, khong goi chi/em");
+  } else if (profile.preferredPronoun === "chi") {
+    details.push("xung ho: goi khach la chi");
+  } else if (profile.preferredPronoun === "em") {
+    details.push("xung ho: goi khach la em");
   }
 
   if (profile.registered !== null) {
@@ -2019,27 +2814,78 @@ async function summarizeMessages(messages, env) {
 }
 
 async function sendMessengerParts(recipientId, text, env) {
-  const parts = sanitizeOutgoingText(text)
+  const parts = limitOutgoingParts(
+    sanitizeOutgoingText(text)
     .split("[NEXT]")
     .map((part) => part.trim())
-    .filter(Boolean);
+      .filter(Boolean),
+  );
+
+  let sentCount = 0;
 
   for (let index = 0; index < parts.length; index += 1) {
-    await sendMessengerAction(recipientId, "typing_on", env);
+    try {
+      await sendMessengerAction(recipientId, "typing_on", env);
+    } catch (error) {
+      console.error("Messenger typing action failed", error);
+    }
+
     await delay(getHumanTypingDelay(parts[index], index));
-    await sendMessengerText(recipientId, parts[index], env);
+
+    if (await hasNewIncomingMessage(recipientId, env)) {
+      return;
+    }
+
+    try {
+      await sendMessengerText(recipientId, parts[index], env);
+      sentCount += 1;
+    } catch (error) {
+      console.error("Messenger text part failed", error);
+
+      if (sentCount === 0) {
+        throw error;
+      }
+
+      return;
+    }
   }
+}
+
+async function hasNewIncomingMessage(senderId, env) {
+  const chatState = await getChatState(senderId, env);
+  return Boolean(chatState.pendingReplyToken);
+}
+
+function limitOutgoingParts(parts) {
+  const limitedParts = [];
+
+  for (const part of parts) {
+    if (limitedParts.length >= 2) {
+      break;
+    }
+
+    limitedParts.push(part);
+
+    if (part.includes("?")) {
+      break;
+    }
+  }
+
+  return limitedParts;
 }
 
 async function sendMeditationFileFlow(recipientId, env) {
   await sendMessengerText(recipientId, MEDITATION_FILE_BLOCK, env);
   await sendMessengerText(recipientId, MEDITATION_FILE_NOTE, env);
-  await delay(30000);
-  await sendMessengerText(recipientId, AHACHAT_COURSE_QUESTION, env);
 }
 
 function sanitizeOutgoingText(text) {
   return text
+    .replace(/https?:\/\/menter\.net\/\S+/gi, REGISTRATION_LINK)
+    .replace(/^\s*(ừm|ừ|um|uhm|ukm)[,.\s]*/gi, "Dạ ")
+    .replace(/\bỪm\b/gi, "Dạ")
+    .replace(/\bỪ\b/gi, "Dạ")
+    .replace(/\bUkm\b/gi, "Dạ")
     .replace(/anh\s*\/\s*ch\u1ecb/gi, "bạn")
     .replace(/anh ch\u1ecb/gi, "bạn")
     .replace(/\banh\b/gi, "bạn")
@@ -2047,6 +2893,62 @@ function sanitizeOutgoingText(text) {
     .replace(/\btớ\b/gi, "mình")
     .replace(/\btôi\b/gi, "mình")
     .replace(/\bthầy\b/gi, "mình");
+}
+
+function sanitizeAnswerForUserRequest(answer, normalizedUserText) {
+  let sanitizedAnswer = answer;
+
+  if (isExplicitRegistrationLinkRequest(normalizedUserText)) {
+    return sanitizedAnswer.replace(/https?:\/\/menter\.net\/\S+/gi, REGISTRATION_LINK);
+  }
+
+  if (!isDeepSupportRequest(normalizedUserText)) {
+    sanitizedAnswer = removeAssistantContactSuggestion(sanitizedAnswer);
+  }
+
+  return sanitizedAnswer
+    .replace(/https?:\/\/\S+/gi, "")
+    .replace(/\s*Link\s*:\s*/gi, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function isExplicitRegistrationLinkRequest(normalizedText) {
+  return (
+    normalizedText.includes("xin link") ||
+    normalizedText.includes("gui link") ||
+    normalizedText.includes("cho em link") ||
+    normalizedText.includes("link dang ky") ||
+    normalizedText.includes("dang ky o dau") ||
+    normalizedText.includes("muon dang ky") ||
+    normalizedText.includes("cho minh dang ky") ||
+    normalizedText.includes("tham gia nhu the nao")
+  );
+}
+
+function isDeepSupportRequest(normalizedText) {
+  return (
+    normalizedText.includes("tu van sau") ||
+    normalizedText.includes("can nguoi tu van") ||
+    normalizedText.includes("gap tu van") ||
+    normalizedText.includes("cho xin so") ||
+    normalizedText.includes("xin sdt") ||
+    normalizedText.includes("so dien thoai") ||
+    normalizedText.includes("tro ly") ||
+    normalizedText.includes("ho tro sau")
+  );
+}
+
+function removeAssistantContactSuggestion(text) {
+  return text
+    .split(/\[NEXT\]|\n+/)
+    .map((part) => part.trim())
+    .filter(
+      (part) =>
+        part &&
+        !/trợ lý|tro ly|sdt|số điện thoại|so dien thoai|0355\s*067\s*656/i.test(part),
+    )
+    .join("[NEXT]");
 }
 
 function limitWords(text, maxWords) {
