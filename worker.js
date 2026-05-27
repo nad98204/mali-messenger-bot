@@ -490,6 +490,10 @@ function getRuleBasedAnswer(userText, messages = [], customerName = "", customer
   const greetingReply = getGreetingReply(normalizedText);
   const profile = sanitizeCustomerProfile(customerProfile);
 
+  if (hasCustomerPhoneNumber(userText)) {
+    return "Cảm ơn bạn đã để lại số điện thoại nhé[NEXT]Trợ lý bên mình sẽ liên hệ lại sớm";
+  }
+
   if (isGiftScriptRequest(normalizedText) || isMoneyGratitudeRequest(normalizedText)) {
     return getGiftScriptKeywordAnswer();
   }
@@ -1389,6 +1393,21 @@ function isThanksResponse(normalizedText) {
     normalizedText === "thanks" ||
     normalizedText.startsWith("thank ")
   );
+}
+
+function hasCustomerPhoneNumber(text) {
+  const phoneCandidates = String(text).match(/(?:\+?84|0)(?:[\s().-]*\d){8,10}\b/g);
+
+  if (!phoneCandidates) {
+    return false;
+  }
+
+  return phoneCandidates.some((candidate) => {
+    const digits = candidate.replace(/\D/g, "");
+    const localDigits = digits.startsWith("84") ? `0${digits.slice(2)}` : digits;
+
+    return /^0(?:2\d{8,9}|[35789]\d{8})$/.test(localDigits);
+  });
 }
 
 function getThanksReply(messages = []) {
